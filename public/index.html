@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LinkShort - Professional URL Shortener</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <!-- Header Navigation -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="nav-brand">
+                <i class="fas fa-link brand-icon"></i>
+                <span class="brand-text">LinkShort</span>
+            </div>
+            <div class="nav-menu">
+                <!-- Welcome message (hidden by default) -->
+                <div id="welcomeMessage" class="welcome-message hidden">
+                    <span class="welcome-text">Hoşgeldin, <span id="userEmail"></span></span>
+                    <button class="btn btn-outline-sm" id="logoutBtn">
+                        <i class="fas fa-sign-out-alt"></i> Log out
+                    </button>
+                </div>
+                <!-- Login/Signup buttons (shown by default) -->
+                <div id="authButtons" class="auth-buttons">
+                    <button class="btn btn-outline-sm" id="loginBtn">Log in</button>
+                    <button class="btn btn-primary-sm" id="signupBtn">Sign up free</button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <section class="hero">
+        <div class="hero-container">
+            <div class="hero-content">
+                <h1 class="hero-title">
+                    Professional
+                    <span class="gradient-text">URL shortener</span>
+                </h1>
+                <p class="hero-subtitle">
+                    Create, manage and track your shortened links with advanced analytics. Build stronger digital connections with our powerful link management platform.
+                </p>
+
+                <!-- URL Shortener Form -->
+                <div class="shortener-card">
+                    <form id="urlForm" class="shortener-form">
+                        <div class="input-group">
+                            <i class="fas fa-link input-icon"></i>
+                            <input
+                                type="url"
+                                id="originalUrl"
+                                placeholder="Paste your long URL here"
+                                class="url-input"
+                                required
+                            >
+                            <button type="submit" class="btn btn-primary" id="submitBtn">
+                                Shorten
+                            </button>
+                        </div>
+
+                        <!-- Advanced Options -->
+                        <div class="advanced-options" id="advancedOptions">
+                            <div class="option-group">
+                                <label for="customCode">Customize your link</label>
+                                <div class="custom-input-group">
+                                    <span class="domain-prefix">x.ly/</span>
+                                    <input
+                                        type="text"
+                                        id="customCode"
+                                        placeholder="custom-link"
+                                        pattern="[a-zA-Z0-9-_]+"
+                                        maxlength="20"
+                                    >
+                                </div>
+                            </div>
+                        </div>
+
+                        <button type="button" class="advanced-toggle" id="advancedToggle">
+                            <i class="fas fa-cog"></i> Customize
+                        </button>
+                    </form>
+                </div>
+
+                <!-- Result Section -->
+                <div id="resultSection" class="result-card hidden">
+                    <div class="result-header">
+                        <i class="fas fa-check-circle success-icon"></i>
+                        <span>Your shortened link is ready!</span>
+                    </div>
+                    <div class="result-content">
+                        <div class="result-url">
+                            <input type="text" id="shortUrl" readonly class="short-url-input">
+                            <button class="btn btn-copy" id="copyBtn">
+                                <i class="fas fa-copy"></i>
+                                Copy
+                            </button>
+                        </div>
+                        <!-- Edit butonu kaldırıldı -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Dashboard Section -->
+    <section class="dashboard" id="dashboardSection">
+        <div class="dashboard-container">
+            <div class="dashboard-header">
+                <h2>Links</h2>
+                <div class="dashboard-controls">
+                    <div class="search-box">
+                        <i class="fas fa-search"></i>
+                        <input type="text" placeholder="Search links..." id="searchInput">
+                    </div>
+                    <button class="btn btn-outline" id="refreshBtn">
+                        <i class="fas fa-sync-alt"></i>
+                        Refresh
+                    </button>
+                </div>
+            </div>
+
+            <div class="links-container">
+                <div id="urlsList" class="links-list">
+                    <!-- Links will be loaded here -->
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Analytics Modal -->
+    <div id="statsModal" class="modal hidden" style="display: none;">
+        <div class="modal-overlay"></div>
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3><i class="fas fa-chart-bar"></i> Link Analytics</h3>
+                <button class="modal-close" id="closeModal">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body" id="statsContent">
+                <!-- Analytics content will be loaded here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading Spinner -->
+    <div id="loadingSpinner" class="loading-overlay hidden">
+        <div class="spinner">
+            <div class="spinner-ring"></div>
+        </div>
+    </div>
+
+    <!-- Toast Container -->
+    <div id="toastContainer" class="toast-container"></div>
+
+    <!-- Login Modal -->
+    <div id="loginModal" class="auth-modal hidden">
+        <div class="modal-overlay"></div>
+        <div class="auth-modal-content">
+            <button class="modal-close" id="closeLoginModal">
+                <i class="fas fa-times"></i>
+            </button>
+            <div class="auth-form-container">
+                <h2 class="auth-title">Sign In</h2>
+                <form id="loginForm" class="auth-form">
+                    <div class="auth-input-group">
+                        <i class="fas fa-user auth-icon"></i>
+                        <input
+                            type="email"
+                            id="loginEmail"
+                            placeholder="Username or email"
+                            class="auth-input"
+                            required
+                        >
+                    </div>
+                    <div class="auth-input-group">
+                        <i class="fas fa-lock auth-icon"></i>
+                        <input
+                            type="password"
+                            id="loginPassword"
+                            placeholder="Password"
+                            class="auth-input"
+                            required
+                        >
+                    </div>
+                    <div class="auth-options">
+                        <label class="remember-me">
+                            <input type="checkbox" id="rememberMe">
+                            <span class="checkmark"></span>
+                            Remember me
+                        </label>
+                        <button type="button" class="forgot-password" id="forgotPasswordBtn">
+                            Forgot password?
+                        </button>
+                    </div>
+                    <button type="submit" class="auth-submit-btn">Sign In</button>
+                </form>
+                <div class="auth-switch">
+                    <span>New here? </span>
+                    <button type="button" class="auth-switch-btn" id="showSignUpModal">
+                        Create an Account
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Sign Up Modal -->
+    <div id="signUpModal" class="auth-modal hidden">
+        <div class="modal-overlay"></div>
+        <div class="auth-modal-content">
+            <button class="modal-close" id="closeSignUpModal">
+                <i class="fas fa-times"></i>
+            </button>
+            <div class="auth-form-container">
+                <h2 class="auth-title">Sign Up</h2>
+                <form id="signUpForm" class="auth-form">
+                    <div class="auth-input-group">
+                        <i class="fas fa-user auth-icon"></i>
+                        <input
+                            type="email"
+                            id="signUpEmail"
+                            placeholder="Username or email"
+                            class="auth-input"
+                            required
+                        >
+                    </div>
+                    <div class="auth-input-group">
+                        <i class="fas fa-lock auth-icon"></i>
+                        <input
+                            type="password"
+                            id="signUpPassword"
+                            placeholder="Password"
+                            class="auth-input"
+                            required
+                        >
+                    </div>
+                    <div class="auth-input-group">
+                        <i class="fas fa-lock auth-icon"></i>
+                        <input
+                            type="password"
+                            id="confirmPassword"
+                            placeholder="Confirm Password"
+                            class="auth-input"
+                            required
+                        >
+                    </div>
+                    <button type="submit" class="auth-submit-btn">Sign Up</button>
+                </form>
+                <div class="auth-switch">
+                    <span>Already have an account? </span>
+                    <button type="button" class="auth-switch-btn" id="showLoginModal">
+                        Sign In
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Forgot Password Modal -->
+    <div id="forgotPasswordModal" class="auth-modal hidden">
+        <div class="modal-overlay"></div>
+        <div class="auth-modal-content">
+            <button class="modal-close" id="closeForgotPasswordModal">
+                <i class="fas fa-times"></i>
+            </button>
+            <div class="auth-form-container">
+                <h2 class="auth-title">Reset Password</h2>
+                <p class="auth-subtitle">Enter your email address and we'll send you a link to reset your password.</p>
+                <form id="forgotPasswordForm" class="auth-form">
+                    <div class="auth-input-group">
+                        <i class="fas fa-envelope auth-icon"></i>
+                        <input
+                            type="email"
+                            id="forgotEmail"
+                            placeholder="Email address"
+                            class="auth-input"
+                            required
+                        >
+                    </div>
+                    <button type="submit" class="auth-submit-btn">Send Reset Link</button>
+                </form>
+                <div class="auth-switch">
+                    <button type="button" class="auth-switch-btn" id="backToLogin">
+                        Back to Sign In
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
