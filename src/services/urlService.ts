@@ -100,23 +100,20 @@ export class UrlService {
     }
   }
 
-  // Tıklama kaydı oluştur
+  // Tıklama kaydı oluştur - url_clicks tablosu yerine urls tablosundaki sayaçları güncelle
   async recordClick(urlId: number, ipAddress: string, userAgent?: string, referer?: string): Promise<void> {
     const client = await pool.connect();
 
     try {
-      // Tıklama kaydı ekle
+      // URL'nin tıklama sayısını artır ve son tıklama zamanını güncelle
       await client.query(`
-        INSERT INTO url_clicks (url_id, ip_address, user_agent, referer)
-        VALUES ($1, $2, $3, $4)
-      `, [urlId, ipAddress, userAgent || null, referer || null]);
-
-      // URL'nin tıklama sayısını artır
-      await client.query(`
-        UPDATE urls SET clicks = clicks + 1 WHERE id = $1
+        UPDATE urls 
+        SET url_count = COALESCE(url_count, 0) + 1,
+            last_clicked_at = NOW()
+        WHERE id = $1
       `, [urlId]);
 
-      console.log('✅ Click recorded for URL ID:', urlId);
+      console.log('✅ Click recorded for URL ID:', urlId, 'IP:', ipAddress);
     } finally {
       client.release();
     }
@@ -128,7 +125,9 @@ export class UrlService {
 
     try {
       const query = `
-        SELECT * FROM urls 
+        SELECT id, original_url, short_code, title, created_at, expires_at, is_active,
+               COALESCE(url_count, 0) as clicks, last_clicked_at
+        FROM urls 
         WHERE user_id = $1 
         ORDER BY created_at DESC 
         LIMIT $2 OFFSET $3
@@ -149,7 +148,9 @@ export class UrlService {
       console.log('🔍 getAllUrls called - limit:', limit, 'offset:', offset);
 
       const query = `
-        SELECT * FROM urls 
+        SELECT id, original_url, short_code, title, created_at, expires_at, is_active,
+               COALESCE(url_count, 0) as clicks, last_clicked_at
+        FROM urls 
         WHERE is_active = true 
         ORDER BY created_at DESC 
         LIMIT $1 OFFSET $2
@@ -170,13 +171,18 @@ export class UrlService {
     }
   }
 
-  // URL istatistikleri
+  // URL istatistikleri - url_clicks tablosu yerine urls tablosundaki verilerden al
   async getUrlStats(shortCode: string, userId?: number): Promise<UrlStats | null> {
     const client = await pool.connect();
 
     try {
       // URL'yi bul ve yetki kontrolü yap
-      let query = 'SELECT * FROM urls WHERE short_code = $1';
+      let query = `
+        SELECT id, original_url, short_code, title, created_at, expires_at, is_active,
+               COALESCE(url_count, 0) as total_clicks, last_clicked_at
+        FROM urls 
+        WHERE short_code = $1
+      `;
       const params = [shortCode];
 
       if (userId) {
@@ -192,24 +198,12 @@ export class UrlService {
 
       const url = urlResult.rows[0];
 
-      // İstatistikleri hesapla
-      const statsQuery = `
-        SELECT 
-          COUNT(*) as total_clicks,
-          COUNT(CASE WHEN DATE(clicked_at) = CURRENT_DATE THEN 1 END) as today_clicks,
-          COUNT(CASE WHEN clicked_at >= CURRENT_DATE - INTERVAL '7 days' THEN 1 END) as week_clicks
-        FROM url_clicks 
-        WHERE url_id = $1
-      `;
-
-      const statsResult = await client.query(statsQuery, [url.id]);
-      const stats = statsResult.rows[0];
-
+      // Basit istatistikler - url_clicks tablosu olmadığı için sadece toplam tıklama sayısı
       return {
         url: url,
-        total_clicks: parseInt(stats.total_clicks) || 0,
-        today_clicks: parseInt(stats.today_clicks) || 0,
-        week_clicks: parseInt(stats.week_clicks) || 0
+        total_clicks: parseInt(url.total_clicks) || 0,
+        today_clicks: 0, // url_clicks tablosu olmadığı için hesaplanamıyor
+        week_clicks: 0   // url_clicks tablosu olmadığı için hesaplanamıyor
       };
     } finally {
       client.release();

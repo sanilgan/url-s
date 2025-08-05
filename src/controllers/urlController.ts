@@ -67,16 +67,174 @@ export class UrlController {
           <!DOCTYPE html>
           <html>
           <head>
-            <title>Link Bulunamadı</title>
+            <title>Link Bulunamadı - x.ly</title>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
             <style>
-              body { font-family: Arial, sans-serif; text-align: center; padding: 50px; }
-              .error { color: #e74c3c; }
+              body { 
+                font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+                text-align: center; 
+                padding: 50px 20px; 
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                color: white;
+                margin: 0;
+                min-height: 100vh;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                flex-direction: column;
+              }
+              .container {
+                background: rgba(255, 255, 255, 0.1);
+                backdrop-filter: blur(10px);
+                border-radius: 20px;
+                padding: 40px;
+                max-width: 500px;
+                box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
+              }
+              .error-code { font-size: 72px; font-weight: bold; margin-bottom: 20px; }
+              h1 { margin: 20px 0; font-size: 24px; }
+              p { margin: 20px 0; font-size: 16px; opacity: 0.9; }
+              a { 
+                color: white; 
+                text-decoration: none; 
+                background: rgba(255, 255, 255, 0.2);
+                padding: 12px 24px;
+                border-radius: 25px;
+                display: inline-block;
+                margin-top: 20px;
+                transition: all 0.3s ease;
+              }
+              a:hover { background: rgba(255, 255, 255, 0.3); transform: translateY(-2px); }
             </style>
           </head>
           <body>
-            <h1 class="error">404 - Link Bulunamadı</h1>
-            <p>Bu link mevcut değil veya süresi dolmuş.</p>
-            <a href="/">Ana sayfaya dön</a>
+            <div class="container">
+              <div class="error-code">404</div>
+              <h1>Link Bulunamadı</h1>
+              <p>Bu kısa link mevcut değil, süresi dolmuş veya kaldırılmış olabilir.</p>
+              <a href="/">🏠 Ana Sayfaya Dön</a>
+            </div>
+          </body>
+          </html>
+        `);
+        return;
+      }
+
+      // Süre kontrolü
+      if (url.expires_at && new Date() > new Date(url.expires_at)) {
+        res.status(410).send(`
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <title>Link Süresi Dolmuş - x.ly</title>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <style>
+              body { 
+                font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+                text-align: center; 
+                padding: 50px 20px; 
+                background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+                color: white;
+                margin: 0;
+                min-height: 100vh;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                flex-direction: column;
+              }
+              .container {
+                background: rgba(255, 255, 255, 0.1);
+                backdrop-filter: blur(10px);
+                border-radius: 20px;
+                padding: 40px;
+                max-width: 500px;
+                box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
+              }
+              .error-code { font-size: 72px; font-weight: bold; margin-bottom: 20px; }
+              h1 { margin: 20px 0; font-size: 24px; }
+              p { margin: 20px 0; font-size: 16px; opacity: 0.9; }
+              a { 
+                color: white; 
+                text-decoration: none; 
+                background: rgba(255, 255, 255, 0.2);
+                padding: 12px 24px;
+                border-radius: 25px;
+                display: inline-block;
+                margin-top: 20px;
+                transition: all 0.3s ease;
+              }
+              a:hover { background: rgba(255, 255, 255, 0.3); transform: translateY(-2px); }
+            </style>
+          </head>
+          <body>
+            <div class="container">
+              <div class="error-code">⏰</div>
+              <h1>Link Süresi Dolmuş</h1>
+              <p>Bu kısa linkin kullanım süresi dolmuş. Lütfen yeni bir link oluşturun.</p>
+              <a href="/">🏠 Ana Sayfaya Dön</a>
+            </div>
+          </body>
+          </html>
+        `);
+        return;
+      }
+
+      // Aktif olmayan linkler için kontrol
+      if (!url.is_active) {
+        res.status(410).send(`
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <title>Link Devre Dışı - x.ly</title>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <style>
+              body { 
+                font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+                text-align: center; 
+                padding: 50px 20px; 
+                background: linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%);
+                color: #333;
+                margin: 0;
+                min-height: 100vh;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                flex-direction: column;
+              }
+              .container {
+                background: rgba(255, 255, 255, 0.8);
+                backdrop-filter: blur(10px);
+                border-radius: 20px;
+                padding: 40px;
+                max-width: 500px;
+                box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
+              }
+              .error-code { font-size: 72px; font-weight: bold; margin-bottom: 20px; }
+              h1 { margin: 20px 0; font-size: 24px; }
+              p { margin: 20px 0; font-size: 16px; opacity: 0.8; }
+              a { 
+                color: #333; 
+                text-decoration: none; 
+                background: rgba(0, 0, 0, 0.1);
+                padding: 12px 24px;
+                border-radius: 25px;
+                display: inline-block;
+                margin-top: 20px;
+                transition: all 0.3s ease;
+              }
+              a:hover { background: rgba(0, 0, 0, 0.2); transform: translateY(-2px); }
+            </style>
+          </head>
+          <body>
+            <div class="container">
+              <div class="error-code">🚫</div>
+              <h1>Link Devre Dı��ı</h1>
+              <p>Bu link şu anda kullanıma kapalı.</p>
+              <a href="/">🏠 Ana Sayfaya Dön</a>
+            </div>
           </body>
           </html>
         `);
@@ -86,7 +244,7 @@ export class UrlController {
       // Tıklama kaydı oluştur (opsiyonel - hata olursa yönlendirmeye devam et)
       try {
         const ipAddress = req.ip || req.connection.remoteAddress || '127.0.0.1';
-        const userAgent = req.get('User-Agent');
+        const userAgent = req.get('User-Agent') || 'Unknown';
         const referer = req.get('Referer');
 
         console.log('Recording click for URL ID:', url.id, 'IP:', ipAddress);
@@ -103,8 +261,13 @@ export class UrlController {
         redirectUrl = 'https://' + redirectUrl;
       }
 
-      // Yönlendirme
-      res.redirect(301, redirectUrl);
+      // 302 Temporary Redirect - URL kısaltıcılar için daha uygun
+      // Bu sayede:
+      // - Kısa URL'ler geçici kabul edilir
+      // - İstatistik takibi yapılabilir
+      // - Spam koruması sağlanır
+      // - Kısa URL'in kendisi arama motorlarında indekslenmez
+      res.redirect(302, redirectUrl);
     } catch (error) {
       console.error('Error in redirectToOriginal:', error);
       // HTML error page döndür, JSON değil
@@ -112,16 +275,54 @@ export class UrlController {
         <!DOCTYPE html>
         <html>
         <head>
-          <title>Yönlendirme Hatası</title>
+          <title>Sunucu Hatası - x.ly</title>
+          <meta charset="UTF-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
           <style>
-            body { font-family: Arial, sans-serif; text-align: center; padding: 50px; }
-            .error { color: #e74c3c; }
+            body { 
+              font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+              text-align: center; 
+              padding: 50px 20px; 
+              background: linear-gradient(135deg, #ff9a9e 0%, #fecfef 100%);
+              color: #333;
+              margin: 0;
+              min-height: 100vh;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              flex-direction: column;
+            }
+            .container {
+              background: rgba(255, 255, 255, 0.9);
+              backdrop-filter: blur(10px);
+              border-radius: 20px;
+              padding: 40px;
+              max-width: 500px;
+              box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
+            }
+            .error-code { font-size: 72px; font-weight: bold; margin-bottom: 20px; }
+            h1 { margin: 20px 0; font-size: 24px; }
+            p { margin: 20px 0; font-size: 16px; opacity: 0.8; }
+            a { 
+              color: #333; 
+              text-decoration: none; 
+              background: rgba(0, 0, 0, 0.1);
+              padding: 12px 24px;
+              border-radius: 25px;
+              display: inline-block;
+              margin-top: 20px;
+              transition: all 0.3s ease;
+            }
+            a:hover { background: rgba(0, 0, 0, 0.2); transform: translateY(-2px); }
           </style>
         </head>
         <body>
-          <h1 class="error">Yönlendirme Hatası</h1>
-          <p>Link yönlendirmesi sırasında bir hata oluştu.</p>
-          <a href="/">Ana sayfaya dön</a>
+          <div class="container">
+            <div class="error-code">⚠️</div>
+            <h1>Sunucu Hatası</h1>
+            <p>Link yönlendirmesi sırasında bir hata oluştu. Lütfen daha sonra tekrar deneyin.</p>
+            <a href="/">🏠 Ana Sayfaya Dön</a>
+          </div>
         </body>
         </html>
       `);

@@ -28,17 +28,43 @@ console.log('Database:', process.env.DB_NAME);
 console.log('User:', process.env.DB_USER);
 console.log('Password exists:', !!process.env.DB_PASSWORD);
 
-// Routes
+// Debug middleware - tüm istekleri logla
+app.use((req, res, next) => {
+  console.log(`📥 ${req.method} ${req.path} - ${new Date().toISOString()}`);
+  next();
+});
+
+// Short URL redirect route - MUTLAKA API route'larından ÖNCE!
+app.get('/:shortCode([a-zA-Z0-9_-]+)', async (req, res) => {
+  try {
+    const { shortCode } = req.params;
+    console.log(`🔄 Redirect request for: ${shortCode}`);
+
+    const { UrlController } = await import('./controllers/urlController');
+    const urlController = new UrlController();
+    await urlController.redirectToOriginal(req, res);
+  } catch (error) {
+    console.error('❌ Redirect error:', error);
+    res.status(500).send(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Redirect Error - x.ly</title>
+        <meta charset="UTF-8">
+      </head>
+      <body style="font-family: Arial; text-align: center; padding: 50px;">
+        <h1>Redirect Error</h1>
+        <p>Something went wrong while redirecting.</p>
+        <a href="/">← Back to Home</a>
+      </body>
+      </html>
+    `);
+  }
+});
+
+// API Routes - redirect route'undan SONRA
 app.use('/api/urls', urlRoutes);
 app.use('/api/auth', authRoutes);
-
-// Short URL redirect route - API route'larından sonra ama catch-all'dan önce
-app.get('/:shortCode', async (req, res) => {
-  // Bu kısa URL yönlendirme route'u
-  const { UrlController } = await import('./controllers/urlController');
-  const urlController = new UrlController();
-  urlController.redirectToOriginal(req, res);
-});
 
 // Ana sayfa için catch-all route
 app.get('*', (req, res) => {

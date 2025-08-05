@@ -46,6 +46,15 @@ const fixDatabase = async () => {
       console.log('✅ user_id column added');
     }
 
+    // title kolonu yoksa ekle
+    if (!existingColumns.includes('title')) {
+      console.log('➕ Adding title column to urls table...');
+      await client.query(`
+        ALTER TABLE urls ADD COLUMN title VARCHAR(255) DEFAULT 'Untitled'
+      `);
+      console.log('✅ title column added');
+    }
+
     // click_count kolonu varsa ve clicks yoksa, rename et
     if (existingColumns.includes('click_count') && !existingColumns.includes('clicks')) {
       console.log('🔄 Renaming click_count to clicks...');

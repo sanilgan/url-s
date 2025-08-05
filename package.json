@@ -10,7 +10,9 @@
     "init-db": "ts-node src/scripts/initDb.ts",
     "fix-db": "ts-node src/scripts/fixDb.ts",
     "add-name-column": "ts-node src/scripts/addNameColumn.ts",
-    "add-title-column": "ts-node src/scripts/addTitleColumn.ts"
+    "add-title-column": "ts-node src/scripts/addTitleColumn.ts",
+    "check-db": "ts-node src/scripts/checkDatabaseStructure.ts",
+    "debug-redirect": "ts-node src/scripts/debugRedirect.ts"
   },
   "keywords": [
     "url-shortener",

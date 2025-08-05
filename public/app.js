@@ -536,11 +536,11 @@ class UrlShortener {
                     <div class="empty-icon">
                         <i class="fas fa-lock"></i>
                     </div>
-                    <h3>Sign in to view your links</h3>
+                    <h3>Log in to view your links</h3>
                     <p>Please sign in to view and manage your shortened links.</p>
                     <div style="margin-top: 20px;">
                         <button class="btn-login-extra-small" onclick="urlShortener.showSignUpModal()">
-                            <i class="fas fa-sign-in-alt"></i> Sign In
+                            <i class="fas fa-log-in-alt"></i> Log In
                         </button>
                     </div>
                 </div>
