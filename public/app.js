@@ -568,7 +568,7 @@ class UrlShortener {
                 <div class="link-header">
                     <div class="link-info">
                         <h3>${url.title || 'Untitled'}</h3>
-                        <a href="${url.short_url}" target="_blank" class="link-url">${url.short_url}</a>
+                        <a href="${url.short_url}" target="_blank" class="link-url">x.ly/${url.short_code}</a>
                         <div class="link-original">${url.original_url}</div>
                     </div>
                     <div class="link-actions">

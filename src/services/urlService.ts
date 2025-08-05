@@ -187,7 +187,7 @@ export class UrlService {
 
       if (userId) {
         query += ' AND user_id = $2';
-        params.push(userId);
+        params.push(userId.toString()); // number'ı string'e çevir
       }
 
       const urlResult = await client.query(query, params);
@@ -201,9 +201,9 @@ export class UrlService {
       // Basit istatistikler - url_clicks tablosu olmadığı için sadece toplam tıklama sayısı
       return {
         url: url,
-        total_clicks: parseInt(url.total_clicks) || 0,
-        today_clicks: 0, // url_clicks tablosu olmadığı için hesaplanamıyor
-        week_clicks: 0   // url_clicks tablosu olmadığı için hesaplanamıyor
+        totalClicks: parseInt(url.total_clicks) || 0, // total_clicks yerine totalClicks
+        todayClicks: 0, // url_clicks tablosu olmadığı için hesaplanamıyor
+        weekClicks: 0   // url_clicks tablosu olmadığı için hesaplanamıyor
       };
     } finally {
       client.release();
