@@ -1,4 +1,4 @@
-# URL Shortener - Professional Link Management
+# URL Shortener 
 
 Modern ve kullanıcı dostu URL kısaltma uygulaması. Uzun bağlantıları kısa ve paylaşılabilir linklere dönüştürün, tıklama istatistiklerini takip edin.
 
