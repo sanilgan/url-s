@@ -1,14 +1,14 @@
 import { Router } from 'express';
-import { AuthController } from '../controllers/authController';
-import { authenticateToken } from '../middleware/auth';
+import { authController } from '../controllers/authController';
 
 const router = Router();
-const authController = new AuthController();
 
 // Auth routes
-router.post('/register', (req, res) => authController.register(req, res));
-router.post('/login', (req, res) => authController.login(req, res));
-router.post('/forgot-password', (req, res) => authController.forgotPassword(req, res));
-router.get('/profile', authenticateToken, (req, res) => authController.getProfile(req, res));
+router.post('/register', authController.register.bind(authController));
+router.post('/login', authController.login.bind(authController));
+router.post('/forgot-password', authController.forgotPassword.bind(authController));
+router.post('/reset-password', authController.resetPassword.bind(authController));
+router.get('/verify-token', authController.verifyToken.bind(authController));
+router.get('/profile', authController.getProfile.bind(authController));
 
 export default router;

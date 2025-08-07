@@ -1,20 +1,25 @@
+//agron2
+
 class UrlShortener {
     constructor() {
-        this.baseUrl = window.location.origin;
-        this.currentShortCode = null;
-        // Hem localStorage hem sessionStorage'dan token kontrolü
-        this.authToken = localStorage.getItem('authToken') || sessionStorage.getItem('authToken');
-        this.currentUser = null;
-        this.init();
+        this.baseUrl = window.location.origin; // baseURL: "http://localhost:3001"
+        this.currentShortCode = null;   //currentShortCode: En son oluşturulan kısa kodun tutulduğu yer
+        //localStorage ve sessionStorage token kontrol eder
+        this.authToken = localStorage.getItem('authToken') || sessionStorage.getItem('authToken'); //token kontrol eder beni hatırla özelliği için
+       //authToken:  Kullanıcının giriş bilgisini saklayan "anahtar"
+        this.currentUser = null; //giriş yapmış kullanıcı bilgileri
+        this.init();  //uygulamayı başlat (init : başlatma)
     }
 
     init() {
-        this.bindEvents();
-        this.checkAuthStatus();
-        this.loadUrls();
+        this.bindEvents(); //tüm butonları dinlemeye başla
+        this.checkAuthStatus(); //kullanıcının giriş yapıp yapmadığını kontrol et
+        this.loadUrls();  //mevcut URL'leri yükle
     }
 
-    // Authentication durumunu kontrol et
+    // Authentication (kimlik doğrulama) durumunu kontrol et
+    //sayfa yenilendiğinde kullanıcının giriş yapıp yapmadığını kontrol eder
+    //token süresi dolmuşsa otomatik log out yapar
     async checkAuthStatus() {
         if (this.authToken) {
             try {
@@ -23,6 +28,7 @@ class UrlShortener {
                         'Authorization': `Bearer ${this.authToken}`
                     }
                 });
+                // Eğer token geçerliyse kullanıcı bilgilerini al
 
                 if (response.ok) {
                     const result = await response.json();
@@ -32,7 +38,7 @@ class UrlShortener {
                     // Token geçersiz
                     this.logout();
                 }
-            } catch (error) {
+            } catch (error) {  //token süresi dolmuşsa temizle
                 console.error('Auth check failed:', error);
                 this.logout();
             }
@@ -40,44 +46,53 @@ class UrlShortener {
             this.updateAuthUI(false); // Giriş yapılmamış durumu
         }
     }
+    //Sayfa yenilendiğinde "kullanıcı hala giriş yapmış mı?" kontrol eder
+    //Token süresi dolmuşsa otomatik çıkış yapar
+    //Güvenlik sağlar
 
     // Auth UI'ını güncelle
     updateAuthUI(isLoggedIn) {
         const welcomeMessage = document.getElementById('welcomeMessage');
         const authButtons = document.getElementById('authButtons');
-        const userEmailSpan = document.getElementById('userEmail');
+        const userNameSpan = document.getElementById('userName');
 
         if (isLoggedIn && this.currentUser) {
-            // Giriş yapılmış durumu
+            // Giriş yapılmış durumu - "Hoş geldiniz kullanıcı_adı" göster
             welcomeMessage.classList.remove('hidden');
-            authButtons.classList.add('hidden');
-            userEmailSpan.textContent = this.currentUser.email;
+            authButtons.classList.add('hidden');// Login/Signup butonlarını gizle
+            userNameSpan.textContent = this.currentUser.name;
         } else {
-            // Giriş yapılmamış durumu
+            // Giriş yapılmamış durumu- login/signup butonlarını göster
             welcomeMessage.classList.add('hidden');
             authButtons.classList.remove('hidden');
         }
-    }
+    }//giriş yapmışsa hoş geldin yapmamışsa giriş yap butonlarını gösterir
 
     // API istekleri için header oluştur
+    //her apı isteğinde kullanılır. -giriş yapmışsa token'ı da gönderir
+    //Token, kullanıcı giriş yaptıktan sonra verilen gizli bir koddur.
+    // API’ye veri çekme/gönderme isteklerinde, bu token genellikle Authorization başlığında (header) yer alır.
+    // Bu sayede sunucu, "Bu kullanıcı gerçekten giriş yapmış mı ve yetkisi var mı?" diye kontrol edebilir.
     getAuthHeaders() {
         const headers = {
             'Content-Type': 'application/json'
         };
-
         if (this.authToken) {
             headers['Authorization'] = `Bearer ${this.authToken}`;
         }
-
         return headers;
     }
+    //Token nedir?
+    // Kullanıcı giriş yaptığında verilen gizli "anahtar"
+    // Server'a "Bu kullanıcı gerçekten giriş yapmış" diye kanıtlar
+    // Her API isteğinde bu anahtarı gönderir
 
-    bindEvents() {
+    bindEvents() { //olay dinleyicileri
         // URL kısaltma formu
         const urlForm = document.getElementById('urlForm');
         if (urlForm) {
             urlForm.addEventListener('submit', (e) => this.handleSubmit(e));
-        }
+        }// form gönderildiğinde handleSubmit fonksiyonunu çağırır
 
         // Gelişmiş seçenekler toggle
         const advancedToggle = document.getElementById('advancedToggle');
@@ -85,7 +100,7 @@ class UrlShortener {
             advancedToggle.addEventListener('click', () => this.toggleAdvancedOptions());
         }
 
-        // Kopyalama butonu
+        // cop butonu tıklandığında kopyala
         const copyBtn = document.getElementById('copyBtn');
         if (copyBtn) {
             copyBtn.addEventListener('click', () => this.copyToClipboard());
@@ -129,20 +144,25 @@ class UrlShortener {
         // Auth modal event listeners
         this.bindAuthEvents();
     }
+    //Event Listener nedir?
+    // "Bu butona tıklandığında şu fonksiyonu çalıştır" demek
+    // HTML'deki butonları JavaScript'e bağlar
+    // if kontrolü: Buton yoksa hata vermesin
 
-    bindAuthEvents() {
-        // Login modal
+    bindAuthEvents() {    // neden ayrı fonksiyon ? ana events ve auth events ayrı olsun diye
+        //Login/Signup/ForgotPassword işlemlerini gruplar
+        // Login modal kapatma
         const loginModal = document.getElementById('loginModal');
         const closeLoginModal = document.getElementById('closeLoginModal');
         const loginForm = document.getElementById('loginForm');
         const showSignUpFromLogin = document.getElementById('showSignUpModal');
         const forgotPasswordBtn = document.getElementById('forgotPasswordBtn');
 
-        if (closeLoginModal) {
+        if (closeLoginModal) {   // Login modal kapatma butonu
             closeLoginModal.addEventListener('click', () => this.hideLoginModal());
         }
 
-        if (loginForm) {
+        if (loginForm) {  // Login form gönderme
             loginForm.addEventListener('submit', (e) => this.handleLogin(e));
         }
 
@@ -153,7 +173,7 @@ class UrlShortener {
             });
         }
 
-        if (forgotPasswordBtn) {
+        if (forgotPasswordBtn) {   // Şifremi unuttum linki
             forgotPasswordBtn.addEventListener('click', () => {
                 this.hideLoginModal();
                 this.showForgotPasswordModal();
@@ -214,22 +234,28 @@ class UrlShortener {
         });
     }
 
-    // Auth modal functions
+    // Auth modal functions -
+    //Login/Signup/ForgotPassword popup pencerelerini açıp kapatır.
+    // Kullanıcı deneyimi için arkadaki sayfayı scroll edilemez yapar.
     showLoginModal() {
         const modal = document.getElementById('loginModal');
         if (modal) {
-            modal.classList.remove('hidden');
-            document.body.style.overflow = 'hidden';
+            modal.classList.remove('hidden'); // Modal'ı görünür yap
+            document.body.style.overflow = 'hidden';  // Arka plan kaydırmayı engelle
         }
     }
 
     hideLoginModal() {
         const modal = document.getElementById('loginModal');
         if (modal) {
-            modal.classList.add('hidden');
-            document.body.style.overflow = '';
+            modal.classList.add('hidden');  // Modal'ı gizle
+            document.body.style.overflow = ''; // scrolu geri aç
         }
     }
+    //Modal nedir?
+    // Sayfanın üstünde açılan popup pencere
+    // Login, Signup, Şifre Sıfırlama formları için kullanılır
+    // Arka plan scroll kapatılır (kullanıcı deneyimi için)
 
     showSignUpModal() {
         const modal = document.getElementById('signUpModal');
@@ -268,10 +294,12 @@ class UrlShortener {
         this.hideSignUpModal();
         this.hideForgotPasswordModal();
     }
+    //Bir modal açıkken diğerini açarsa öncekini kapatır
+    // Kod tekrarını önle
 
     // Auth handlers
     async handleLogin(e) {
-        e.preventDefault();
+        e.preventDefault();  //Sayfanın yenilenmesini engelle
 
         const email = document.getElementById('loginEmail').value;
         const password = document.getElementById('loginPassword').value;
@@ -293,9 +321,9 @@ class UrlShortener {
                 this.currentUser = result.data.user;
 
                 if (rememberMe) {
-                    localStorage.setItem('authToken', this.authToken);
+                    localStorage.setItem('authToken', this.authToken); //Tarayıcı kapansa bile token kalır ("Beni Hatırla")
                 } else {
-                    sessionStorage.setItem('authToken', this.authToken);
+                    sessionStorage.setItem('authToken', this.authToken); //Tarayıcı kapanınca token silinir
                 }
 
                 this.hideLoginModal();
@@ -310,13 +338,21 @@ class UrlShortener {
             this.showToast('Bir hata oluştu. Lütfen tekrar deneyin.', 'error');
         }
     }
-
+//Neden var: Kullanıcı giriş formunu doldurduğunda server'a göndermek için.
+// "Beni Hatırla" işaretliyse localStorage'a, değilse sessionStorage'a kaydeder.
     async handleSignUp(e) {
-        e.preventDefault();
+        e.preventDefault();  //  form gönnderildiğinde sayfanın yenilenmesini engeller
+        //javascript'te form submit edildiğinde sayfa yenilenir. Bunu engellemek için e.preventDefault() kullanılır.
 
+        const name = document.getElementById('signUpName').value.trim();
         const email = document.getElementById('signUpEmail').value;
         const password = document.getElementById('signUpPassword').value;
         const confirmPassword = document.getElementById('confirmPassword').value;
+
+        if (!name) {
+            this.showToast('Kullanıcı adı gereklidir', 'error');
+            return;
+        }
 
         if (password !== confirmPassword) {
             this.showToast('Şifreler eşleşmiyor', 'error');
@@ -329,7 +365,7 @@ class UrlShortener {
                 headers: {
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({ email, password })
+                body: JSON.stringify({ name, email, password })
             });
 
             const result = await response.json();
@@ -346,7 +382,7 @@ class UrlShortener {
             this.showToast('Bir hata oluştu. Lütfen tekrar deneyin.', 'error');
         }
     }
-
+//Yeni hesap oluşturma. Şifre kontrolü yapar, başarılıysa Login modal'ına yönlendirir.
     async handleForgotPassword(e) {
         e.preventDefault();
 
@@ -380,8 +416,13 @@ class UrlShortener {
         e.preventDefault();
 
         const originalUrl = document.getElementById('originalUrl').value.trim();
+        //trim() nedir?
+        // Başındaki ve sonundaki boşlukları temizler
+        // " google.com " → "google.com"
+        const urlTitle = document.getElementById('urlTitle').value.trim();
         const customCode = document.getElementById('customCode').value.trim();
-
+        const selectedDomain = document.getElementById('domainSelect').value; // Domain seçimi eklendi
+// URL boş mu kontrol et
         if (!originalUrl) {
             this.showToast('Lütfen geçerli bir URL girin', 'error');
             return;
@@ -394,11 +435,16 @@ class UrlShortener {
             submitBtn.textContent = 'Kısaltılıyor...';
             submitBtn.disabled = true;
 
-            const requestBody = { original_url: originalUrl };
+            const requestBody = {
+                original_url: originalUrl,
+                title: urlTitle || 'Untitled',
+                domain: selectedDomain // Domain bilgisi eklendi
+            };
+
             if (customCode) {
                 requestBody.custom_code = customCode;
             }
-
+//servere gönder
             const response = await fetch('/api/urls/shorten', {
                 method: 'POST',
                 headers: this.getAuthHeaders(),
@@ -413,6 +459,7 @@ class UrlShortener {
                 this.loadUrls(); // URL listesini güncelle
                 document.getElementById('urlForm').reset();
                 this.hideAdvancedOptions();
+                this.showToast(`Link başarıyla kısaltıldı: ${urlTitle || 'Untitled'}`, 'success');
             } else {
                 this.showToast(result.error || 'URL kısaltılamadı', 'error');
             }
@@ -436,6 +483,9 @@ class UrlShortener {
             resultSection.scrollIntoView({ behavior: 'smooth' });
         }
     }
+    //Validation nedir?
+    // Kullanıcı girişini kontrol etmek
+    // Boş URL gönderilmesini engeller
 
     // Gelişmiş seçenekleri aç/kapat
     toggleAdvancedOptions() {
@@ -454,6 +504,10 @@ class UrlShortener {
             }
         }
     }
+//Neden var?
+// Custom kod, domain seçimi gibi gelişmiş seçenekler
+// Temel kullanıcılar için basit arayüz
+// İleri kullanıcılar için detaylı seçenekler
 
     hideAdvancedOptions() {
         const advancedOptions = document.getElementById('advancedOptions');
@@ -466,7 +520,8 @@ class UrlShortener {
         }
     }
 
-    // Panoya kopyala
+    // kopyalama özelliği
+
     async copyToClipboard() {
         const shortUrlInput = document.getElementById('shortUrl');
         const copyBtn = document.getElementById('copyBtn');
@@ -497,22 +552,13 @@ class UrlShortener {
     // URL'leri yükle
     async loadUrls() {
         try {
-            console.log('🔄 Loading URLs...');
-            console.log('🔐 Auth token exists:', !!this.authToken);
-            console.log('👤 Current user:', this.currentUser?.email || 'Not logged in');
-
             const response = await fetch('/api/urls/list', {
                 headers: this.getAuthHeaders()
             });
 
-            console.log('📡 Response status:', response.status);
-            console.log('📝 Response headers:', response.headers.get('content-type'));
-
             const result = await response.json();
-            console.log('📋 API Response:', result);
 
             if (result.success) {
-                console.log('✅ URLs received:', result.data.length);
                 this.renderUrls(result.data);
             } else {
                 console.error('❌ Load URLs failed:', result.error);
@@ -563,22 +609,31 @@ class UrlShortener {
         }
 
         // URL'leri listele
-        urlsList.innerHTML = urls.map(url => `
+        urlsList.innerHTML = urls.map(url => {
+            // Doğru kısa URL'i oluştur - backend'den gelen short_url'i kullan
+            const shortUrl = url.short_url || `${window.location.origin}/${url.short_code}`;
+            const displayUrl = url.display_url || `x.ly/${url.short_code}`;
+
+            return `
             <div class="link-item" data-id="${url.id}">
                 <div class="link-header">
                     <div class="link-info">
                         <h3>${url.title || 'Untitled'}</h3>
-                        <a href="${url.short_url}" target="_blank" class="link-url">x.ly/${url.short_code}</a>
+                        <a href="${shortUrl}" target="_blank" class="link-url">${displayUrl}</a>
                         <div class="link-original">${url.original_url}</div>
                     </div>
                     <div class="link-actions">
-                        <button class="btn btn-outline-sm copy-btn" data-url="${url.short_url}">
+                        <button class="btn btn-outline-sm copy-btn" data-url="${shortUrl}">
                             <i class="fas fa-copy"></i>
                             Copy
                         </button>
                         <button class="btn btn-outline-sm edit-btn" data-id="${url.id}" data-title="${url.title || 'Untitled'}">
                             <i class="fas fa-edit"></i>
                             Edit
+                        </button>
+                        <button class="btn btn-outline-sm delete-btn" data-id="${url.id}" data-title="${url.title || 'Untitled'}">
+                            <i class="fas fa-trash"></i>
+                            Delete
                         </button>
                     </div>
                 </div>
@@ -594,7 +649,8 @@ class UrlShortener {
                     </div>
                 </div>
             </div>
-        `).join('');
+            `;
+        }).join('');
 
         // Event delegation ile buton olaylarını bağla
         this.bindUrlListEvents();
@@ -625,6 +681,11 @@ class UrlShortener {
                 const currentTitle = target.getAttribute('data-title');
                 console.log('Edit button clicked, ID:', urlId, 'Title:', currentTitle);
                 this.editTitle(urlId, currentTitle);
+            } else if (target.classList.contains('delete-btn')) {
+                const urlId = target.getAttribute('data-id');
+                const urlTitle = target.getAttribute('data-title');
+                console.log('Delete button clicked, ID:', urlId, 'Title:', urlTitle);
+                this.confirmDeleteUrl(urlId, urlTitle);
             }
         };
 
@@ -690,6 +751,37 @@ class UrlShortener {
         }
     }
 
+    // URL silme onayı
+    confirmDeleteUrl(urlId, urlTitle) {
+        const confirmDelete = confirm(`"${urlTitle}" başlıklı URL'i silmek istediğinize emin misiniz?`);
+
+        if (confirmDelete) {
+            this.deleteUrl(urlId);
+        }
+    }
+
+    // URL sil
+    async deleteUrl(urlId) {
+        try {
+            const response = await fetch(`/api/urls/${urlId}`, {
+                method: 'DELETE',
+                headers: this.getAuthHeaders()
+            });
+
+            const result = await response.json();
+
+            if (result.success) {
+                this.showToast('URL başarıyla silindi.', 'success');
+                this.loadUrls(); // URL listesini yenile
+            } else {
+                this.showToast(result.error || 'URL silinemedi', 'error');
+            }
+        } catch (error) {
+            console.error('Delete URL error:', error);
+            this.showToast('URL silinemedi', 'error');
+        }
+    }
+
     // Logout fonksiyonu
     logout() {
         this.authToken = null;
@@ -741,8 +833,8 @@ class UrlShortener {
             const originalUrl = item.querySelector('.link-original').textContent.toLowerCase();
 
             const matches = title.includes(normalizedSearch) ||
-                          url.includes(normalizedSearch) ||
-                          originalUrl.includes(normalizedSearch);
+                url.includes(normalizedSearch) ||
+                originalUrl.includes(normalizedSearch);
 
             item.style.display = matches ? 'block' : 'none';
         });

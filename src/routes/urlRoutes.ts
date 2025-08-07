@@ -5,29 +5,19 @@ import { authenticateOptional } from '../middleware/auth';
 const router = Router();
 const urlController = new UrlController();
 
-// URL kısaltma - opsiyonel auth (hem giriş yapmış hem yapmamış kullanıcılar kullanabilir)
-router.post('/shorten', authenticateOptional, (req, res) => {
-  urlController.createShortUrl(req, res);
-});
+// URL kısaltma
+router.post('/shorten', authenticateOptional, urlController.createShortUrl.bind(urlController));
 
-// URL'leri listeleme - opsiyonel auth (giriş yapmamışsa boş liste döner)
-router.get('/list', authenticateOptional, (req, res) => {
-  urlController.listUrls(req, res);
-});
+// URL listesi
+router.get('/list', authenticateOptional, urlController.getUserUrls.bind(urlController));
 
-// URL istatistikleri - opsiyonel auth (sadece kendi linklerini görebilir)
-router.get('/:shortCode/stats', authenticateOptional, (req, res) => {
-  urlController.getUrlStats(req, res);
-});
+// URL güncelleme
+router.put('/:id', authenticateOptional, urlController.updateUrl.bind(urlController));
 
-// Veritabanı test - auth gerektirmez
-router.get('/test-db', (req, res) => {
-  urlController.testDatabase(req, res);
-});
+// URL silme
+router.delete('/:id', authenticateOptional, urlController.deleteUrl.bind(urlController));
 
-// URL güncelleme - opsiyonel auth (sadece kendi linklerini güncelleyebilir)
-router.put('/:id', authenticateOptional, (req, res) => {
-  urlController.updateUrl(req, res);
-});
+// URL istatistikleri
+router.get('/:id/stats', authenticateOptional, urlController.getUrlStats.bind(urlController));
 
 export default router;

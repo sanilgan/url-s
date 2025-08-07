@@ -1,45 +1,37 @@
 export interface User {
   id: number;
   email: string;
-  password_hash: string;
   name: string;
+  password_hash: string;
   created_at: Date;
   is_active: boolean;
 }
 
 export interface Url {
   id: number;
-  user_id?: number; // Opsiyonel - mevcut URL'ler için
+  user_id?: number;
   original_url: string;
   short_code: string;
+  title?: string;
+  domain?: string;
   created_at: Date;
   expires_at?: Date;
-  click_count: number;
+  clicks?: number;
+  url_count?: number;
+  last_clicked_at?: Date;
   is_active: boolean;
-}
-
-export interface UrlClick {
-  id: number;
-  url_id: number;
-  ip_address: string;
-  user_agent?: string;
-  referer?: string;
-  clicked_at: Date;
-  country?: string;
-  city?: string;
 }
 
 export interface CreateUrlRequest {
   original_url: string;
   custom_code?: string;
   expires_at?: string;
+  title?: string;
+  domain?: string;
 }
 
 export interface UrlStats {
   url: Url;
-  clicks: UrlClick[];
-  totalClicks: number;
-  uniqueIps: number;
-  topCountries: Array<{ country: string; count: number }>;
-  clicksByDate: Array<{ date: string; count: number }>;
+  total_clicks: number;
+  last_clicked?: Date;
 }

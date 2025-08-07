@@ -7,12 +7,7 @@
     "start": "node dist/app.js",
     "dev": "ts-node-dev --respawn --transpile-only src/app.ts",
     "build": "tsc",
-    "init-db": "ts-node src/scripts/initDb.ts",
-    "fix-db": "ts-node src/scripts/fixDb.ts",
-    "add-name-column": "ts-node src/scripts/addNameColumn.ts",
-    "add-title-column": "ts-node src/scripts/addTitleColumn.ts",
-    "check-db": "ts-node src/scripts/checkDatabaseStructure.ts",
-    "debug-redirect": "ts-node src/scripts/debugRedirect.ts"
+    "init-db": "ts-node src/scripts/initDb.ts"
   },
   "keywords": [
     "url-shortener",
@@ -24,7 +19,7 @@
   "license": "MIT",
   "dependencies": {
     "@types/jsonwebtoken": "^9.0.10",
-    "bcrypt": "^5.1.0",
+    "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",
     "dotenv": "^16.3.1",
     "express": "^4.18.2",
@@ -35,7 +30,7 @@
     "validator": "^13.11.0"
   },
   "devDependencies": {
-    "@types/bcrypt": "^5.0.0",
+    "@types/bcryptjs": "^2.4.2",
     "@types/cors": "^2.8.13",
     "@types/express": "^4.17.17",
     "@types/node": "^20.5.0",

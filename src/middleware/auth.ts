@@ -8,50 +8,42 @@ export interface AuthenticatedRequest extends Request {
   };
 }
 
+const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
+
+// İsteğe bağlı kimlik doğrulama - token yoksa anonim kullanıcı
 export const authenticateOptional = (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   const authHeader = req.headers.authorization;
 
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    // Token yoksa, anonim kullanıcı olarak devam et
+  if (!authHeader?.startsWith('Bearer ')) {
     req.user = undefined;
     return next();
   }
 
-  const token = authHeader.substring(7);
-
   try {
-    const jwtSecret = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
-    const decoded = jwt.verify(token, jwtSecret) as { userId: number; email: string };
+    const token = authHeader.substring(7);
+    const decoded = jwt.verify(token, JWT_SECRET) as { userId: number; email: string };
     req.user = decoded;
-    next();
   } catch (error) {
-    // Token geçersizse, anonim kullanıcı olarak devam et
     req.user = undefined;
-    next();
   }
+
+  next();
 };
 
+// Zorunlu kimlik doğrulama - token gerekli
 export const authenticateToken = (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   const authHeader = req.headers.authorization;
 
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return res.status(401).json({
-      success: false,
-      error: 'Access token required'
-    });
+  if (!authHeader?.startsWith('Bearer ')) {
+    return res.status(401).json({ success: false, error: 'Giriş gerekli' });
   }
 
-  const token = authHeader.substring(7);
-
   try {
-    const jwtSecret = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
-    const decoded = jwt.verify(token, jwtSecret) as { userId: number; email: string };
+    const token = authHeader.substring(7);
+    const decoded = jwt.verify(token, JWT_SECRET) as { userId: number; email: string };
     req.user = decoded;
     next();
   } catch (error) {
-    return res.status(403).json({
-      success: false,
-      error: 'Invalid or expired token'
-    });
+    return res.status(401).json({ success: false, error: 'Geçersiz token' });
   }
 };
