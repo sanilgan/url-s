@@ -17,34 +17,27 @@ export class UrlService {
 
   async createShortUrl(data: CreateUrlRequest, userId?: number): Promise<Url> {
     if (!validator.isURL(data.original_url)) {
-      throw new Error('Geçersiz URL formatı');
+      throw new Error('Invalid URL format');
     }
 
     const client = await pool.connect();
     try {
-      // Kısa kod oluştur
+      // Generate short code
       let shortCode = data.custom_code;
       if (!shortCode) {
         do {
           shortCode = nanoid(8);
         } while (await this.isShortCodeTaken(shortCode));
       } else if (await this.isShortCodeTaken(shortCode)) {
-        throw new Error('Bu kısa kod zaten kullanımda');
+        throw new Error('This short code is already in use');
       }
 
       const result = await client.query(`
-        INSERT INTO urls (original_url, short_code, expires_at, user_id, title, domain)
-        VALUES ($1, $2, $3, $4, $5, $6)
-        RETURNING id, original_url, short_code, expires_at, created_at, title, domain,
+        INSERT INTO urls (original_url, short_code, expires_at, user_id, title)
+        VALUES ($1, $2, $3, $4, $5)
+        RETURNING id, original_url, short_code, expires_at, created_at, title,
                   COALESCE(url_count, 0) as clicks
-      `, [
-        data.original_url,
-        shortCode,
-        data.expires_at || null,
-        userId || null,
-        data.title || 'Untitled',
-        data.domain || 'x.ly'
-      ]);
+      `, [data.original_url, shortCode, data.expires_at || null, userId || null, data.title || 'Untitled']);
 
       return result.rows[0];
     } finally {
@@ -129,7 +122,7 @@ export class UrlService {
       const result = await client.query(query, values);
 
       if (result.rows.length === 0) {
-        throw new Error('URL bulunamadı veya güncellenemedi');
+        throw new Error('URL not found or could not be updated');
       }
 
       return result.rows[0];
@@ -150,7 +143,7 @@ export class UrlService {
       const result = await client.query(query, values);
 
       if (result.rowCount === 0) {
-        throw new Error('URL bulunamadı veya silinemedi');
+        throw new Error('URL not found or could not be deleted');
       }
     } finally {
       client.release();
@@ -171,7 +164,7 @@ export class UrlService {
       const result = await client.query(query, values);
 
       if (result.rows.length === 0) {
-        throw new Error('URL bulunamadı');
+        throw new Error('URL not found');
       }
 
       const url = result.rows[0];

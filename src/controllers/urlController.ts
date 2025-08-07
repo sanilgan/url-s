@@ -25,9 +25,7 @@ export class UrlController {
       }, userId);
 
       // Dinamik base URL oluştur
-      const protocol = req.secure ? 'https' : 'http';
-      const host = req.get('host');
-      const baseUrl = `${protocol}://${host}`;
+      const baseUrl = this.getBaseUrl(req);
       const shortUrl = `${baseUrl}/${url.short_code}`;
 
       res.status(201).json({
@@ -52,37 +50,11 @@ export class UrlController {
       const url = await urlService.getUrlByShortCode(shortCode);
 
       if (!url) {
-        return res.status(404).send(`
-          <!DOCTYPE html>
-          <html>
-          <head><title>Link Bulunamadı - x.ly</title><meta charset="UTF-8"></head>
-          <body style="font-family:Arial;text-align:center;padding:50px;background:linear-gradient(135deg,#667eea,#764ba2);color:white;">
-            <div style="background:rgba(255,255,255,0.1);border-radius:20px;padding:40px;max-width:500px;margin:0 auto;">
-              <div style="font-size:72px;">404</div>
-              <h1>Link Bulunamadı</h1>
-              <p>Bu kısa link mevcut değil veya kaldırılmış.</p>
-              <a href="/" style="color:white;text-decoration:none;background:rgba(255,255,255,0.2);padding:12px 24px;border-radius:25px;">🏠 Ana Sayfa</a>
-            </div>
-          </body>
-          </html>
-        `);
+        return res.status(404).send(this.getErrorPage(404, 'Link Bulunamadı', 'Bu kısa link mevcut değil veya kaldırılmış.'));
       }
 
       if (url.expires_at && new Date() > new Date(url.expires_at)) {
-        return res.status(410).send(`
-          <!DOCTYPE html>
-          <html>
-          <head><title>Link Süresi Dolmuş - x.ly</title><meta charset="UTF-8"></head>
-          <body style="font-family:Arial;text-align:center;padding:50px;background:linear-gradient(135deg,#f093fb,#f5576c);color:white;">
-            <div style="background:rgba(255,255,255,0.1);border-radius:20px;padding:40px;max-width:500px;margin:0 auto;">
-              <div style="font-size:72px;">410</div>
-              <h1>Link Süresi Dolmuş</h1>
-              <p>Bu link artık aktif değil.</p>
-              <a href="/" style="color:white;text-decoration:none;background:rgba(255,255,255,0.2);padding:12px 24px;border-radius:25px;">🏠 Ana Sayfa</a>
-            </div>
-          </body>
-          </html>
-        `);
+        return res.status(410).send(this.getErrorPage(410, 'Link Süresi Dolmuş', 'Bu link artık aktif değil.'));
       }
 
       await urlService.incrementClickCount(url.id);
@@ -97,10 +69,7 @@ export class UrlController {
       const userId = req.user?.userId;
       const urls = userId ? await urlService.getUserUrls(userId) : await urlService.getAllUrls();
 
-      // Dinamik base URL oluştur
-      const protocol = req.secure ? 'https' : 'http';
-      const host = req.get('host');
-      const baseUrl = `${protocol}://${host}`;
+      const baseUrl = this.getBaseUrl(req);
 
       const urlsWithShortUrl = urls.map(url => ({
         ...url,
@@ -160,8 +129,37 @@ export class UrlController {
     } catch (error) {
       res.status(400).json({
         success: false,
-        error: error instanceof Error ? error.message : 'İstatistikler alınamadı'
+        error: error instanceof Error ? error.message : 'URL istatistikleri alınamadı'
       });
     }
+  }
+
+  // Yardımcı fonksiyonlar
+  private getBaseUrl(req: Request): string {
+    const protocol = req.secure ? 'https' : 'http';
+    const host = req.get('host');
+    return `${protocol}://${host}`;
+  }
+
+  private getErrorPage(errorCode: number, title: string, message: string): string {
+    const gradients = {
+      404: 'linear-gradient(135deg,#667eea,#764ba2)',
+      410: 'linear-gradient(135deg,#f093fb,#f5576c)'
+    };
+
+    return `
+      <!DOCTYPE html>
+      <html>
+      <head><title>${title} - x.ly</title><meta charset="UTF-8"></head>
+      <body style="font-family:Arial;text-align:center;padding:50px;background:${gradients[errorCode] || gradients[404]};color:white;">
+        <div style="background:rgba(255,255,255,0.1);border-radius:20px;padding:40px;max-width:500px;margin:0 auto;">
+          <div style="font-size:72px;">${errorCode}</div>
+          <h1>${title}</h1>
+          <p>${message}</p>
+          <a href="/" style="color:white;text-decoration:none;background:rgba(255,255,255,0.2);padding:12px 24px;border-radius:25px;">🏠 Ana Sayfa</a>
+        </div>
+      </body>
+      </html>
+    `;
   }
 }

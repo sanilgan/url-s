@@ -4,17 +4,14 @@ import pool from '../config/database';
 
 export class AuthController {
 
-  /**
-   * Kullanıcı kaydı
-   */
   async register(req: Request, res: Response): Promise<void> {
     try {
       const { email, password, name } = req.body;
 
-      if (!email || !password) {
+      if (!email || !password || !name) {
         res.status(400).json({
           success: false,
-          error: 'Email ve şifre gereklidir'
+          error: 'Email, password and name are required'
         });
         return;
       }
@@ -23,7 +20,7 @@ export class AuthController {
 
       res.status(201).json({
         success: true,
-        message: 'Hesabınız başarıyla oluşturuldu',
+        message: 'Account created successfully',
         data: {
           user: result.user,
           token: result.token
@@ -31,7 +28,7 @@ export class AuthController {
       });
 
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Kayıt sırasında hata oluştu';
+      const errorMessage = error instanceof Error ? error.message : 'Error occurred during registration';
 
       res.status(400).json({
         success: false,
@@ -40,9 +37,6 @@ export class AuthController {
     }
   }
 
-  /**
-   * Kullanıcı girişi
-   */
   async login(req: Request, res: Response): Promise<void> {
     try {
       const { email, password } = req.body;
@@ -50,7 +44,7 @@ export class AuthController {
       if (!email || !password) {
         res.status(400).json({
           success: false,
-          error: 'Email ve şifre gereklidir'
+          error: 'Email and password are required'
         });
         return;
       }
@@ -59,7 +53,7 @@ export class AuthController {
 
       res.json({
         success: true,
-        message: 'Giriş başarılı',
+        message: 'Login successful',
         data: {
           user: result.user,
           token: result.token
@@ -67,7 +61,7 @@ export class AuthController {
       });
 
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Giriş sırasında hata oluştu';
+      const errorMessage = error instanceof Error ? error.message : 'Error occurred during login';
 
       res.status(401).json({
         success: false,
@@ -76,9 +70,6 @@ export class AuthController {
     }
   }
 
-  /**
-   * Şifre sıfırlama token'ı oluştur
-   */
   async forgotPassword(req: Request, res: Response): Promise<void> {
     try {
       const { email } = req.body;
@@ -86,24 +77,21 @@ export class AuthController {
       if (!email) {
         res.status(400).json({
           success: false,
-          error: 'Email adresi gereklidir'
+          error: 'Email address is required'
         });
         return;
       }
 
       const resetToken = await authService.generatePasswordResetToken(email);
 
-      // Gerçek uygulamada bu token email ile gönderilir
-      // Şimdilik response'da döndürüyoruz (güvenlik açısından sadece development için)
       res.json({
         success: true,
-        message: 'Şifre sıfırlama bağlantısı email adresinize gönderildi',
-        // Production'da bu satırı kaldırın:
+        message: 'Password reset link has been sent to your email address',
         resetToken: process.env.NODE_ENV === 'development' ? resetToken : undefined
       });
 
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Şifre sıfırlama hatası';
+      const errorMessage = error instanceof Error ? error.message : 'Password reset error';
 
       res.status(400).json({
         success: false,
@@ -112,9 +100,6 @@ export class AuthController {
     }
   }
 
-  /**
-   * Şifre sıfırlama
-   */
   async resetPassword(req: Request, res: Response): Promise<void> {
     try {
       const { token, newPassword } = req.body;
@@ -122,7 +107,7 @@ export class AuthController {
       if (!token || !newPassword) {
         res.status(400).json({
           success: false,
-          error: 'Token ve yeni şifre gereklidir'
+          error: 'Token and new password are required'
         });
         return;
       }
@@ -131,11 +116,11 @@ export class AuthController {
 
       res.json({
         success: true,
-        message: 'Şifreniz başarıyla güncellendi'
+        message: 'Your password has been updated successfully'
       });
 
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Şifre sıfırlama hatası';
+      const errorMessage = error instanceof Error ? error.message : 'Password reset error';
 
       res.status(400).json({
         success: false,
@@ -144,9 +129,6 @@ export class AuthController {
     }
   }
 
-  /**
-   * Token doğrulama
-   */
   async verifyToken(req: Request, res: Response): Promise<void> {
     try {
       const authHeader = req.headers.authorization;
@@ -154,7 +136,7 @@ export class AuthController {
       if (!authHeader || !authHeader.startsWith('Bearer ')) {
         res.status(401).json({
           success: false,
-          error: 'Token gereklidir'
+          error: 'Token is required'
         });
         return;
       }
@@ -168,7 +150,7 @@ export class AuthController {
       });
 
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Token doğrulama hatası';
+      const errorMessage = error instanceof Error ? error.message : 'Token verification error';
 
       res.status(401).json({
         success: false,
@@ -177,9 +159,6 @@ export class AuthController {
     }
   }
 
-  /**
-   * Kullanıcı profil bilgilerini getir
-   */
   async getProfile(req: Request, res: Response): Promise<void> {
     try {
       const authHeader = req.headers.authorization;
@@ -187,7 +166,7 @@ export class AuthController {
       if (!authHeader || !authHeader.startsWith('Bearer ')) {
         res.status(401).json({
           success: false,
-          error: 'Token gereklidir'
+          error: 'Token is required'
         });
         return;
       }
@@ -195,7 +174,6 @@ export class AuthController {
       const token = authHeader.substring(7);
       const decoded = await authService.verifyToken(token);
 
-      // Kullanıcı bilgilerini veritabanından al
       const client = await pool.connect();
       try {
         const result = await client.query(
@@ -206,7 +184,7 @@ export class AuthController {
         if (result.rows.length === 0) {
           res.status(404).json({
             success: false,
-            error: 'Kullanıcı bulunamadı'
+            error: 'User not found'
           });
           return;
         }
@@ -228,7 +206,7 @@ export class AuthController {
       }
 
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Profil getirme hatası';
+      const errorMessage = error instanceof Error ? error.message : 'Error fetching profile';
 
       res.status(401).json({
         success: false,

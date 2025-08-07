@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="tr">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -19,9 +19,9 @@
         <div class="nav-menu">
             <!-- Welcome message (hidden by default) -->
             <div id="welcomeMessage" class="welcome-message hidden">
-                <span class="welcome-text">Hoş geldiniz, <span id="userName"></span></span>
+                <span class="welcome-text">Welcome, <span id="userName"></span></span>
                 <button class="btn btn-outline-sm" id="logoutBtn">
-                    <i class="fas fa-sign-out-alt"></i> Çıkış Yap
+                    <i class="fas fa-sign-out-alt"></i> Log out
                 </button>
             </div>
             <!-- Login/Signup buttons (shown by default) -->
@@ -130,6 +130,18 @@
         <div class="dashboard-header">
             <h2>Links</h2>
             <div class="dashboard-controls">
+                <div class="sort-controls">
+                    <button class="btn btn-outline-sm sort-btn" id="sortByClicks" data-sort="clicks">
+                        <i class="fas fa-mouse-pointer"></i>
+                        Clicks
+                        <i class="fas fa-sort sort-icon"></i>
+                    </button>
+                    <button class="btn btn-outline-sm sort-btn" id="sortByDate" data-sort="date">
+                        <i class="fas fa-calendar"></i>
+                        Date
+                        <i class="fas fa-sort sort-icon"></i>
+                    </button>
+                </div>
                 <div class="search-box">
                     <i class="fas fa-search"></i>
                     <input type="text" placeholder="Search links..." id="searchInput">
@@ -243,7 +255,7 @@
                     <input
                             type="text"
                             id="signUpName"
-                            placeholder="Kullanıcı Adı"
+                            placeholder="Username"
                             class="auth-input"
                             required
                     >
@@ -253,7 +265,7 @@
                     <input
                             type="email"
                             id="signUpEmail"
-                            placeholder="E-posta Adresi"
+                            placeholder="Email Address"
                             class="auth-input"
                             required
                     >
@@ -263,7 +275,7 @@
                     <input
                             type="password"
                             id="signUpPassword"
-                            placeholder="Şifre"
+                            placeholder="Password"
                             class="auth-input"
                             required
                     >
@@ -273,12 +285,12 @@
                     <input
                             type="password"
                             id="confirmPassword"
-                            placeholder="Şifre Tekrarı"
+                            placeholder="Confirm Password"
                             class="auth-input"
                             required
                     >
                 </div>
-                <button type="submit" class="auth-submit-btn">Kayıt Ol</button>
+                <button type="submit" class="auth-submit-btn">Sign Up</button>
             </form>
             <div class="auth-switch">
                 <span>Already have an account? </span>

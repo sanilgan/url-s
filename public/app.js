@@ -1,171 +1,146 @@
-//agron2
-
 class UrlShortener {
     constructor() {
-        this.baseUrl = window.location.origin; // baseURL: "http://localhost:3001"
-        this.currentShortCode = null;   //currentShortCode: En son oluşturulan kısa kodun tutulduğu yer
-        //localStorage ve sessionStorage token kontrol eder
-        this.authToken = localStorage.getItem('authToken') || sessionStorage.getItem('authToken'); //token kontrol eder beni hatırla özelliği için
-       //authToken:  Kullanıcının giriş bilgisini saklayan "anahtar"
-        this.currentUser = null; //giriş yapmış kullanıcı bilgileri
-        this.init();  //uygulamayı başlat (init : başlatma)
+        this.baseUrl = window.location.origin;
+        this.currentShortCode = null;
+        this.authToken = localStorage.getItem('authToken') || sessionStorage.getItem('authToken');
+        this.currentUser = null;
+        this.urlsData = [];
+        this.currentSort = { type: null, direction: 'desc' };
+        this.init();
     }
 
     init() {
-        this.bindEvents(); //tüm butonları dinlemeye başla
-        this.checkAuthStatus(); //kullanıcının giriş yapıp yapmadığını kontrol et
-        this.loadUrls();  //mevcut URL'leri yükle
+        this.bindEvents();
+        this.checkAuthStatus();
+        this.loadUrls();
     }
 
-    // Authentication (kimlik doğrulama) durumunu kontrol et
-    //sayfa yenilendiğinde kullanıcının giriş yapıp yapmadığını kontrol eder
-    //token süresi dolmuşsa otomatik log out yapar
+    // Authentication durumunu kontrol et
     async checkAuthStatus() {
         if (this.authToken) {
             try {
                 const response = await fetch('/api/auth/profile', {
-                    headers: {
-                        'Authorization': `Bearer ${this.authToken}`
-                    }
+                    headers: { 'Authorization': `Bearer ${this.authToken}` }
                 });
-                // Eğer token geçerliyse kullanıcı bilgilerini al
 
                 if (response.ok) {
                     const result = await response.json();
                     this.currentUser = result.data;
-                    this.updateAuthUI(true); // UI'ı güncelle
+                    this.updateAuthUI(true);
                 } else {
-                    // Token geçersiz
                     this.logout();
                 }
-            } catch (error) {  //token süresi dolmuşsa temizle
+            } catch (error) {
                 console.error('Auth check failed:', error);
                 this.logout();
             }
         } else {
-            this.updateAuthUI(false); // Giriş yapılmamış durumu
+            this.updateAuthUI(false);
         }
     }
-    //Sayfa yenilendiğinde "kullanıcı hala giriş yapmış mı?" kontrol eder
-    //Token süresi dolmuşsa otomatik çıkış yapar
-    //Güvenlik sağlar
 
-    // Auth UI'ını güncelle
+    // UI'ı güncelle
     updateAuthUI(isLoggedIn) {
         const welcomeMessage = document.getElementById('welcomeMessage');
         const authButtons = document.getElementById('authButtons');
         const userNameSpan = document.getElementById('userName');
 
         if (isLoggedIn && this.currentUser) {
-            // Giriş yapılmış durumu - "Hoş geldiniz kullanıcı_adı" göster
             welcomeMessage.classList.remove('hidden');
-            authButtons.classList.add('hidden');// Login/Signup butonlarını gizle
+            authButtons.classList.add('hidden');
             userNameSpan.textContent = this.currentUser.name;
         } else {
-            // Giriş yapılmamış durumu- login/signup butonlarını göster
             welcomeMessage.classList.add('hidden');
             authButtons.classList.remove('hidden');
         }
-    }//giriş yapmışsa hoş geldin yapmamışsa giriş yap butonlarını gösterir
+    }
 
     // API istekleri için header oluştur
-    //her apı isteğinde kullanılır. -giriş yapmışsa token'ı da gönderir
-    //Token, kullanıcı giriş yaptıktan sonra verilen gizli bir koddur.
-    // API’ye veri çekme/gönderme isteklerinde, bu token genellikle Authorization başlığında (header) yer alır.
-    // Bu sayede sunucu, "Bu kullanıcı gerçekten giriş yapmış mı ve yetkisi var mı?" diye kontrol edebilir.
     getAuthHeaders() {
-        const headers = {
-            'Content-Type': 'application/json'
-        };
+        const headers = { 'Content-Type': 'application/json' };
         if (this.authToken) {
             headers['Authorization'] = `Bearer ${this.authToken}`;
         }
         return headers;
     }
-    //Token nedir?
-    // Kullanıcı giriş yaptığında verilen gizli "anahtar"
-    // Server'a "Bu kullanıcı gerçekten giriş yapmış" diye kanıtlar
-    // Her API isteğinde bu anahtarı gönderir
 
-    bindEvents() { //olay dinleyicileri
-        // URL kısaltma formu
+    // Event listeners'ları bağla
+    bindEvents() {
+        // URL form
         const urlForm = document.getElementById('urlForm');
         if (urlForm) {
             urlForm.addEventListener('submit', (e) => this.handleSubmit(e));
-        }// form gönderildiğinde handleSubmit fonksiyonunu çağırır
+        }
 
-        // Gelişmiş seçenekler toggle
+        // Advanced options toggle
         const advancedToggle = document.getElementById('advancedToggle');
         if (advancedToggle) {
             advancedToggle.addEventListener('click', () => this.toggleAdvancedOptions());
         }
 
-        // cop butonu tıklandığında kopyala
+        // Copy button
         const copyBtn = document.getElementById('copyBtn');
         if (copyBtn) {
             copyBtn.addEventListener('click', () => this.copyToClipboard());
         }
 
-        // Arama
+        // Search
         const searchInput = document.getElementById('searchInput');
         if (searchInput) {
             searchInput.addEventListener('input', (e) => this.searchUrls(e.target.value));
         }
 
-        // Yenile butonu
+        // Refresh button
         const refreshBtn = document.getElementById('refreshBtn');
         if (refreshBtn) {
             refreshBtn.addEventListener('click', () => this.loadUrls());
         }
 
-        // Modal kapatma
+        // Modal close
         const closeModal = document.getElementById('closeModal');
         if (closeModal) {
             closeModal.addEventListener('click', () => this.closeStatsModal());
         }
 
-        // Login/Signup/Logout butonları
+        // Auth buttons
+        this.bindAuthButtons();
+        this.bindAuthEvents();
+        this.bindSortEvents();
+    }
+
+    // Auth butonlarını bağla
+    bindAuthButtons() {
         const loginBtn = document.getElementById('loginBtn');
         const signupBtn = document.getElementById('signupBtn');
         const logoutBtn = document.getElementById('logoutBtn');
 
-        if (loginBtn) {
-            loginBtn.addEventListener('click', () => this.showLoginModal());
-        }
-
-        if (signupBtn) {
-            signupBtn.addEventListener('click', () => this.showSignUpModal());
-        }
-
-        if (logoutBtn) {
-            logoutBtn.addEventListener('click', () => this.logout());
-        }
-
-        // Auth modal event listeners
-        this.bindAuthEvents();
+        if (loginBtn) loginBtn.addEventListener('click', () => this.showLoginModal());
+        if (signupBtn) signupBtn.addEventListener('click', () => this.showSignUpModal());
+        if (logoutBtn) logoutBtn.addEventListener('click', () => this.logout());
     }
-    //Event Listener nedir?
-    // "Bu butona tıklandığında şu fonksiyonu çalıştır" demek
-    // HTML'deki butonları JavaScript'e bağlar
-    // if kontrolü: Buton yoksa hata vermesin
 
-    bindAuthEvents() {    // neden ayrı fonksiyon ? ana events ve auth events ayrı olsun diye
-        //Login/Signup/ForgotPassword işlemlerini gruplar
-        // Login modal kapatma
-        const loginModal = document.getElementById('loginModal');
-        const closeLoginModal = document.getElementById('closeLoginModal');
-        const loginForm = document.getElementById('loginForm');
-        const showSignUpFromLogin = document.getElementById('showSignUpModal');
+    // Auth event'lerini bağla
+    bindAuthEvents() {
+        // Login modal
+        this.bindModalEvents('login', 'LoginModal', (e) => this.handleLogin(e));
+
+        // Sign up modal
+        this.bindModalEvents('signUp', 'SignUpModal', (e) => this.handleSignUp(e));
+
+        // Forgot password modal
+        this.bindModalEvents('forgotPassword', 'ForgotPasswordModal', (e) => this.handleForgotPassword(e));
+
+        // Şifremi unuttum bağlantısı
         const forgotPasswordBtn = document.getElementById('forgotPasswordBtn');
-
-        if (closeLoginModal) {   // Login modal kapatma butonu
-            closeLoginModal.addEventListener('click', () => this.hideLoginModal());
+        if (forgotPasswordBtn) {
+            forgotPasswordBtn.addEventListener('click', () => {
+                this.hideLoginModal();
+                this.showForgotPasswordModal();
+            });
         }
 
-        if (loginForm) {  // Login form gönderme
-            loginForm.addEventListener('submit', (e) => this.handleLogin(e));
-        }
-
+        // Modal geçişleri
+        const showSignUpFromLogin = document.getElementById('showSignUpModal');
         if (showSignUpFromLogin) {
             showSignUpFromLogin.addEventListener('click', () => {
                 this.hideLoginModal();
@@ -173,27 +148,7 @@ class UrlShortener {
             });
         }
 
-        if (forgotPasswordBtn) {   // Şifremi unuttum linki
-            forgotPasswordBtn.addEventListener('click', () => {
-                this.hideLoginModal();
-                this.showForgotPasswordModal();
-            });
-        }
-
-        // Sign up modal
-        const signUpModal = document.getElementById('signUpModal');
-        const closeSignUpModal = document.getElementById('closeSignUpModal');
-        const signUpForm = document.getElementById('signUpForm');
         const showLoginFromSignUp = document.getElementById('showLoginModal');
-
-        if (closeSignUpModal) {
-            closeSignUpModal.addEventListener('click', () => this.hideSignUpModal());
-        }
-
-        if (signUpForm) {
-            signUpForm.addEventListener('submit', (e) => this.handleSignUp(e));
-        }
-
         if (showLoginFromSignUp) {
             showLoginFromSignUp.addEventListener('click', () => {
                 this.hideSignUpModal();
@@ -201,20 +156,7 @@ class UrlShortener {
             });
         }
 
-        // Forgot password modal
-        const forgotPasswordModal = document.getElementById('forgotPasswordModal');
-        const closeForgotPasswordModal = document.getElementById('closeForgotPasswordModal');
-        const forgotPasswordForm = document.getElementById('forgotPasswordForm');
         const backToLogin = document.getElementById('backToLogin');
-
-        if (closeForgotPasswordModal) {
-            closeForgotPasswordModal.addEventListener('click', () => this.hideForgotPasswordModal());
-        }
-
-        if (forgotPasswordForm) {
-            forgotPasswordForm.addEventListener('submit', (e) => this.handleForgotPassword(e));
-        }
-
         if (backToLogin) {
             backToLogin.addEventListener('click', () => {
                 this.hideForgotPasswordModal();
@@ -223,83 +165,56 @@ class UrlShortener {
         }
 
         // Modal overlay clicks
-        const authModals = document.querySelectorAll('.auth-modal');
-        authModals.forEach(modal => {
+        document.querySelectorAll('.auth-modal').forEach(modal => {
             const overlay = modal.querySelector('.modal-overlay');
             if (overlay) {
-                overlay.addEventListener('click', () => {
-                    this.hideAllAuthModals();
-                });
+                overlay.addEventListener('click', () => this.hideAllAuthModals());
             }
         });
     }
 
-    // Auth modal functions -
-    //Login/Signup/ForgotPassword popup pencerelerini açıp kapatır.
-    // Kullanıcı deneyimi için arkadaki sayfayı scroll edilemez yapar.
-    showLoginModal() {
-        const modal = document.getElementById('loginModal');
-        if (modal) {
-            modal.classList.remove('hidden'); // Modal'ı görünür yap
-            document.body.style.overflow = 'hidden';  // Arka plan kaydırmayı engelle
-        }
+    // Modal event'lerini bağla (yardımcı fonksiyon)
+    bindModalEvents(type, modalSuffix, handler) {
+        const closeBtn = document.getElementById(`close${modalSuffix}`);
+        const form = document.getElementById(`${type}Form`);
+
+        if (closeBtn) closeBtn.addEventListener('click', () => this[`hide${modalSuffix}`]());
+        if (form) form.addEventListener('submit', handler);
     }
 
-    hideLoginModal() {
-        const modal = document.getElementById('loginModal');
-        if (modal) {
-            modal.classList.add('hidden');  // Modal'ı gizle
-            document.body.style.overflow = ''; // scrolu geri aç
-        }
-    }
-    //Modal nedir?
-    // Sayfanın üstünde açılan popup pencere
-    // Login, Signup, Şifre Sıfırlama formları için kullanılır
-    // Arka plan scroll kapatılır (kullanıcı deneyimi için)
-
-    showSignUpModal() {
-        const modal = document.getElementById('signUpModal');
+    // Modal fonksiyonları
+    showModal(modalId) {
+        const modal = document.getElementById(modalId);
         if (modal) {
             modal.classList.remove('hidden');
             document.body.style.overflow = 'hidden';
         }
     }
 
-    hideSignUpModal() {
-        const modal = document.getElementById('signUpModal');
+    hideModal(modalId) {
+        const modal = document.getElementById(modalId);
         if (modal) {
             modal.classList.add('hidden');
             document.body.style.overflow = '';
         }
     }
 
-    showForgotPasswordModal() {
-        const modal = document.getElementById('forgotPasswordModal');
-        if (modal) {
-            modal.classList.remove('hidden');
-            document.body.style.overflow = 'hidden';
-        }
-    }
-
-    hideForgotPasswordModal() {
-        const modal = document.getElementById('forgotPasswordModal');
-        if (modal) {
-            modal.classList.add('hidden');
-            document.body.style.overflow = '';
-        }
-    }
+    showLoginModal() { this.showModal('loginModal'); }
+    hideLoginModal() { this.hideModal('loginModal'); }
+    showSignUpModal() { this.showModal('signUpModal'); }
+    hideSignUpModal() { this.hideModal('signUpModal'); }
+    showForgotPasswordModal() { this.showModal('forgotPasswordModal'); }
+    hideForgotPasswordModal() { this.hideModal('forgotPasswordModal'); }
 
     hideAllAuthModals() {
         this.hideLoginModal();
         this.hideSignUpModal();
         this.hideForgotPasswordModal();
     }
-    //Bir modal açıkken diğerini açarsa öncekini kapatır
-    // Kod tekrarını önle
 
-    // Auth handlers
+    // Auth handler'ları
     async handleLogin(e) {
-        e.preventDefault();  //Sayfanın yenilenmesini engelle
+        e.preventDefault();
 
         const email = document.getElementById('loginEmail').value;
         const password = document.getElementById('loginPassword').value;
@@ -308,9 +223,7 @@ class UrlShortener {
         try {
             const response = await fetch('/api/auth/login', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ email, password })
             });
 
@@ -320,29 +233,28 @@ class UrlShortener {
                 this.authToken = result.data.token;
                 this.currentUser = result.data.user;
 
+                // Token'ı sakla
                 if (rememberMe) {
-                    localStorage.setItem('authToken', this.authToken); //Tarayıcı kapansa bile token kalır ("Beni Hatırla")
+                    localStorage.setItem('authToken', this.authToken);
                 } else {
-                    sessionStorage.setItem('authToken', this.authToken); //Tarayıcı kapanınca token silinir
+                    sessionStorage.setItem('authToken', this.authToken);
                 }
 
                 this.hideLoginModal();
-                this.updateAuthUI(true); // UI'ı güncelle
+                this.updateAuthUI(true);
                 await this.loadUrls();
-                this.showToast('Başarıyla giriş yaptınız!', 'success');
+                this.showToast('You have successfully logged in!', 'success');
             } else {
-                this.showToast(result.error || 'Giriş yapılamadı', 'error');
+                this.showToast(result.error || 'Failed to log in', 'error');
             }
         } catch (error) {
             console.error('Login error:', error);
-            this.showToast('Bir hata oluştu. Lütfen tekrar deneyin.', 'error');
+            this.showToast('An error occurred. Please try again..', 'error');
         }
     }
-//Neden var: Kullanıcı giriş formunu doldurduğunda server'a göndermek için.
-// "Beni Hatırla" işaretliyse localStorage'a, değilse sessionStorage'a kaydeder.
+
     async handleSignUp(e) {
-        e.preventDefault();  //  form gönnderildiğinde sayfanın yenilenmesini engeller
-        //javascript'te form submit edildiğinde sayfa yenilenir. Bunu engellemek için e.preventDefault() kullanılır.
+        e.preventDefault();
 
         const name = document.getElementById('signUpName').value.trim();
         const email = document.getElementById('signUpEmail').value;
@@ -350,21 +262,19 @@ class UrlShortener {
         const confirmPassword = document.getElementById('confirmPassword').value;
 
         if (!name) {
-            this.showToast('Kullanıcı adı gereklidir', 'error');
+            this.showToast('Username required', 'error');
             return;
         }
 
         if (password !== confirmPassword) {
-            this.showToast('Şifreler eşleşmiyor', 'error');
+            this.showToast('Passwords do not match', 'error');
             return;
         }
 
         try {
             const response = await fetch('/api/auth/register', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ name, email, password })
             });
 
@@ -372,17 +282,17 @@ class UrlShortener {
 
             if (result.success) {
                 this.hideSignUpModal();
-                this.showToast('Hesabınız başarıyla oluşturuldu! Giriş yapabilirsiniz.', 'success');
+                this.showToast('Your account has been successfully created! You can log in..', 'success');
                 this.showLoginModal();
             } else {
-                this.showToast(result.error || 'Hesap oluşturulamadı', 'error');
+                this.showToast(result.error || 'Failed to create account', 'error');
             }
         } catch (error) {
             console.error('SignUp error:', error);
-            this.showToast('Bir hata oluştu. Lütfen tekrar deneyin.', 'error');
+            this.showToast('An error occurred. Please try again..', 'error');
         }
     }
-//Yeni hesap oluşturma. Şifre kontrolü yapar, başarılıysa Login modal'ına yönlendirir.
+
     async handleForgotPassword(e) {
         e.preventDefault();
 
@@ -391,9 +301,7 @@ class UrlShortener {
         try {
             const response = await fetch('/api/auth/forgot-password', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ email })
             });
 
@@ -401,30 +309,27 @@ class UrlShortener {
 
             if (result.success) {
                 this.hideForgotPasswordModal();
-                this.showToast('Şifre sıfırlama bağlantısı e-mail adresinize gönderildi.', 'success');
+                this.showToast('Password reset link has been sent to your e-mail address.', 'success');
             } else {
-                this.showToast(result.error || 'Şifre sıfırlama isteği gönderilemedi', 'error');
+                this.showToast(result.error || 'Password reset request failed to send', 'error');
             }
         } catch (error) {
             console.error('Forgot password error:', error);
-            this.showToast('Bir hata oluştu. Lütfen tekrar deneyin.', 'error');
+            this.showToast('An error occurred. Please try again..', 'error');
         }
     }
 
-    // URL kısaltma işlemini gerçekleştir
+    // URL kısaltma
     async handleSubmit(e) {
         e.preventDefault();
 
         const originalUrl = document.getElementById('originalUrl').value.trim();
-        //trim() nedir?
-        // Başındaki ve sonundaki boşlukları temizler
-        // " google.com " → "google.com"
         const urlTitle = document.getElementById('urlTitle').value.trim();
         const customCode = document.getElementById('customCode').value.trim();
-        const selectedDomain = document.getElementById('domainSelect').value; // Domain seçimi eklendi
-// URL boş mu kontrol et
+        const selectedDomain = document.getElementById('domainSelect').value;
+
         if (!originalUrl) {
-            this.showToast('Lütfen geçerli bir URL girin', 'error');
+            this.showToast('Please enter a valid URL', 'error');
             return;
         }
 
@@ -432,19 +337,19 @@ class UrlShortener {
         const originalText = submitBtn.textContent;
 
         try {
-            submitBtn.textContent = 'Kısaltılıyor...';
+            submitBtn.textContent = 'Being shortened...';
             submitBtn.disabled = true;
 
             const requestBody = {
                 original_url: originalUrl,
                 title: urlTitle || 'Untitled',
-                domain: selectedDomain // Domain bilgisi eklendi
+                domain: selectedDomain
             };
 
             if (customCode) {
                 requestBody.custom_code = customCode;
             }
-//servere gönder
+
             const response = await fetch('/api/urls/shorten', {
                 method: 'POST',
                 headers: this.getAuthHeaders(),
@@ -456,23 +361,23 @@ class UrlShortener {
             if (result.success) {
                 this.currentShortCode = result.data.short_code;
                 this.showResult(result.data.short_url);
-                this.loadUrls(); // URL listesini güncelle
+                this.loadUrls();
                 document.getElementById('urlForm').reset();
                 this.hideAdvancedOptions();
-                this.showToast(`Link başarıyla kısaltıldı: ${urlTitle || 'Untitled'}`, 'success');
+                this.showToast(`Link successfully shortened: ${urlTitle || 'Untitled'}`, 'success');
             } else {
-                this.showToast(result.error || 'URL kısaltılamadı', 'error');
+                this.showToast(result.error || 'URL could not be shortened', 'error');
             }
         } catch (error) {
             console.error('Shorten URL error:', error);
-            this.showToast('Bağlantı hatası. Lütfen tekrar deneyin.', 'error');
+            this.showToast('Connection error. Please try again.', 'error');
         } finally {
             submitBtn.textContent = originalText;
             submitBtn.disabled = false;
         }
     }
 
-    // Sonucu göster
+    // Sonuç göster
     showResult(shortUrl) {
         const resultSection = document.getElementById('resultSection');
         const shortUrlInput = document.getElementById('shortUrl');
@@ -483,9 +388,6 @@ class UrlShortener {
             resultSection.scrollIntoView({ behavior: 'smooth' });
         }
     }
-    //Validation nedir?
-    // Kullanıcı girişini kontrol etmek
-    // Boş URL gönderilmesini engeller
 
     // Gelişmiş seçenekleri aç/kapat
     toggleAdvancedOptions() {
@@ -493,21 +395,15 @@ class UrlShortener {
         const toggle = document.getElementById('advancedToggle');
 
         if (advancedOptions) {
-            if (advancedOptions.classList.contains('show')) {
-                advancedOptions.classList.remove('show');
-                advancedOptions.style.display = 'none';
-                toggle.innerHTML = '<i class="fas fa-cog"></i> Customize';
-            } else {
-                advancedOptions.classList.add('show');
-                advancedOptions.style.display = 'block';
-                toggle.innerHTML = '<i class="fas fa-times"></i> Close';
-            }
+            const isShown = advancedOptions.classList.contains('show');
+
+            advancedOptions.classList.toggle('show', !isShown);
+            advancedOptions.style.display = isShown ? 'none' : 'block';
+            toggle.innerHTML = isShown ?
+                '<i class="fas fa-cog"></i> Customize' :
+                '<i class="fas fa-times"></i> Close';
         }
     }
-//Neden var?
-// Custom kod, domain seçimi gibi gelişmiş seçenekler
-// Temel kullanıcılar için basit arayüz
-// İleri kullanıcılar için detaylı seçenekler
 
     hideAdvancedOptions() {
         const advancedOptions = document.getElementById('advancedOptions');
@@ -520,8 +416,7 @@ class UrlShortener {
         }
     }
 
-    // kopyalama özelliği
-
+    // Kopyalama işlemi
     async copyToClipboard() {
         const shortUrlInput = document.getElementById('shortUrl');
         const copyBtn = document.getElementById('copyBtn');
@@ -529,23 +424,30 @@ class UrlShortener {
         if (shortUrlInput) {
             try {
                 await navigator.clipboard.writeText(shortUrlInput.value);
-                const originalText = copyBtn.innerHTML;
-                copyBtn.innerHTML = '<i class="fas fa-check"></i> Copied!';
-                copyBtn.classList.add('copied');
-
-                setTimeout(() => {
-                    copyBtn.innerHTML = originalText;
-                    copyBtn.classList.remove('copied');
-                }, 2000);
-
-                this.showToast('Link kopyalandı!', 'success');
+                this.updateCopyButton(copyBtn, true);
+                this.showToast('Link copied!', 'success');
             } catch (error) {
                 console.error('Copy failed:', error);
                 // Fallback for older browsers
                 shortUrlInput.select();
                 document.execCommand('copy');
-                this.showToast('Link kopyalandı!', 'success');
+                this.showToast('Link copied!', 'success');
             }
+        }
+    }
+
+    // Copy butonu görünümünü güncelle
+    updateCopyButton(copyBtn, copied) {
+        const originalText = copyBtn.innerHTML;
+
+        if (copied) {
+            copyBtn.innerHTML = '<i class="fas fa-check"></i> Copied!';
+            copyBtn.classList.add('copied');
+
+            setTimeout(() => {
+                copyBtn.innerHTML = originalText;
+                copyBtn.classList.remove('copied');
+            }, 2000);
         }
     }
 
@@ -562,109 +464,185 @@ class UrlShortener {
                 this.renderUrls(result.data);
             } else {
                 console.error('❌ Load URLs failed:', result.error);
-                this.showToast(result.error || 'URL listesi yüklenemedi', 'error');
+                this.showToast(result.error || 'Could not load URL list', 'error');
             }
         } catch (error) {
             console.error('❌ Load URLs error:', error);
-            this.showToast('Bağlantı hatası', 'error');
+            this.showToast('Connection error', 'error');
         }
     }
 
-    // URL listesini oluştur
+    // URL'leri render et
     renderUrls(urls) {
         const urlsList = document.getElementById('urlsList');
         if (!urlsList) return;
 
-        // Giriş yapmamış kullanıcı için özel mesaj
+        this.urlsData = urls || [];
+
+        // Giriş yapmamış kullanıcı
         if (!this.authToken) {
-            urlsList.innerHTML = `
-                <div class="empty-state">
-                    <div class="empty-icon">
-                        <i class="fas fa-lock"></i>
-                    </div>
-                    <h3>Log in to view your links</h3>
-                    <p>Please sign in to view and manage your shortened links.</p>
-                    <div style="margin-top: 20px;">
-                        <button class="btn-login-extra-small" onclick="urlShortener.showSignUpModal()">
-                            <i class="fas fa-log-in-alt"></i> Log In
-                        </button>
-                    </div>
-                </div>
-            `;
+            urlsList.innerHTML = this.getEmptyStateHTML('lock', 'Log in to view your links', 'Please sign in to view and manage your shortened links.');
             return;
         }
 
-        // Giriş yapmış kullanıcı ama URL'i yok
+        // URL yok
         if (!urls || urls.length === 0) {
-            urlsList.innerHTML = `
-                <div class="empty-state">
-                    <div class="empty-icon">
-                        <i class="fas fa-link"></i>
-                    </div>
-                    <h3>Henüz kısaltılmış link yok</h3>
-                    <p>İlk linkinizi kısaltmak için yukarıdaki formu kullanın.</p>
-                </div>
-            `;
+            urlsList.innerHTML = this.getEmptyStateHTML('link', 'No shortened links yet', 'Use the form above to shorten your first link.');
             return;
         }
 
-        // URL'leri listele
+        // Sıralama varsa
+        if (this.currentSort.type) {
+            this.sortAndRenderUrls();
+            return;
+        }
+
+        this.renderUrlsFromData(urls);
+    }
+
+    // Empty state HTML'i oluştur
+    getEmptyStateHTML(icon, title, description) {
+        const loginButton = !this.authToken ? `
+            <div style="margin-top: 20px;">
+                <button class="btn-login-extra-small" onclick="urlShortener.showSignUpModal()">
+                    <i class="fas fa-log-in-alt"></i> Log In
+                </button>
+            </div>
+        ` : '';
+
+        return `
+            <div class="empty-state">
+                <div class="empty-icon">
+                    <i class="fas fa-${icon}"></i>
+                </div>
+                <h3>${title}</h3>
+                <p>${description}</p>
+                ${loginButton}
+            </div>
+        `;
+    }
+
+    // Sıralama event'lerini bağla
+    bindSortEvents() {
+        const sortByClicks = document.getElementById('sortByClicks');
+        const sortByDate = document.getElementById('sortByDate');
+
+        if (sortByClicks) {
+            sortByClicks.addEventListener('click', () => this.handleSort('clicks'));
+        }
+
+        if (sortByDate) {
+            sortByDate.addEventListener('click', () => this.handleSort('date'));
+        }
+    }
+
+    // Sıralama işlemi
+    handleSort(sortType) {
+        if (this.currentSort.type === sortType) {
+            this.currentSort.direction = this.currentSort.direction === 'desc' ? 'asc' : 'desc';
+        } else {
+            this.currentSort.type = sortType;
+            this.currentSort.direction = 'desc';
+        }
+
+        this.updateSortButtons();
+        this.sortAndRenderUrls();
+    }
+
+    // Sıralama butonlarını güncelle
+    updateSortButtons() {
+        document.querySelectorAll('.sort-btn').forEach(btn => {
+            btn.classList.remove('active', 'sort-asc', 'sort-desc');
+        });
+
+        if (this.currentSort.type) {
+            const activeBtn = document.getElementById(`sortBy${this.currentSort.type === 'clicks' ? 'Clicks' : 'Date'}`);
+            if (activeBtn) {
+                activeBtn.classList.add('active');
+                activeBtn.classList.add(this.currentSort.direction === 'asc' ? 'sort-asc' : 'sort-desc');
+            }
+        }
+    }
+
+    // Sıralama ve render
+    sortAndRenderUrls() {
+        if (!this.urlsData || this.urlsData.length === 0) return;
+
+        const sortedUrls = [...this.urlsData].sort((a, b) => {
+            let valueA, valueB;
+
+            if (this.currentSort.type === 'clicks') {
+                valueA = a.clicks || 0;
+                valueB = b.clicks || 0;
+            } else if (this.currentSort.type === 'date') {
+                valueA = new Date(a.created_at);
+                valueB = new Date(b.created_at);
+            } else {
+                return 0;
+            }
+
+            return this.currentSort.direction === 'asc'
+                ? (valueA > valueB ? 1 : valueA < valueB ? -1 : 0)
+                : (valueA < valueB ? 1 : valueA > valueB ? -1 : 0);
+        });
+
+        this.renderUrlsFromData(sortedUrls);
+    }
+
+    // URL verilerinden HTML oluştur
+    renderUrlsFromData(urls) {
+        const urlsList = document.getElementById('urlsList');
+        if (!urlsList) return;
+
         urlsList.innerHTML = urls.map(url => {
-            // Doğru kısa URL'i oluştur - backend'den gelen short_url'i kullan
             const shortUrl = url.short_url || `${window.location.origin}/${url.short_code}`;
             const displayUrl = url.display_url || `x.ly/${url.short_code}`;
 
             return `
-            <div class="link-item" data-id="${url.id}">
-                <div class="link-header">
-                    <div class="link-info">
-                        <h3>${url.title || 'Untitled'}</h3>
-                        <a href="${shortUrl}" target="_blank" class="link-url">${displayUrl}</a>
-                        <div class="link-original">${url.original_url}</div>
+                <div class="link-item" data-id="${url.id}">
+                    <div class="link-header">
+                        <div class="link-info">
+                            <h3>${url.title || 'Untitled'}</h3>
+                            <a href="${shortUrl}" target="_blank" class="link-url">${displayUrl}</a>
+                            <div class="link-original">${url.original_url}</div>
+                        </div>
+                        <div class="link-actions">
+                            <button class="btn btn-outline-sm copy-btn" data-url="${shortUrl}">
+                                <i class="fas fa-copy"></i> Copy
+                            </button>
+                            <button class="btn btn-outline-sm edit-btn" data-id="${url.id}" data-title="${url.title || 'Untitled'}">
+                                <i class="fas fa-edit"></i> Edit
+                            </button>
+                            <button class="btn btn-outline-sm delete-btn" data-id="${url.id}" data-title="${url.title || 'Untitled'}">
+                                <i class="fas fa-trash"></i> Delete
+                            </button>
+                        </div>
                     </div>
-                    <div class="link-actions">
-                        <button class="btn btn-outline-sm copy-btn" data-url="${shortUrl}">
-                            <i class="fas fa-copy"></i>
-                            Copy
-                        </button>
-                        <button class="btn btn-outline-sm edit-btn" data-id="${url.id}" data-title="${url.title || 'Untitled'}">
-                            <i class="fas fa-edit"></i>
-                            Edit
-                        </button>
-                        <button class="btn btn-outline-sm delete-btn" data-id="${url.id}" data-title="${url.title || 'Untitled'}">
-                            <i class="fas fa-trash"></i>
-                            Delete
-                        </button>
-                    </div>
-                </div>
-                <div class="link-stats">
-                    <div class="stat-item">
-                        <i class="fas fa-mouse-pointer"></i>
-                        <span class="stat-value">${url.clicks || 0}</span>
-                        <span>click${(url.clicks || 0) !== 1 ? 's' : ''}</span>
-                    </div>
-                    <div class="stat-item">
-                        <i class="fas fa-calendar"></i>
-                        <span>${this.formatDate(url.created_at)}</span>
+                    <div class="link-stats">
+                        <div class="stat-item">
+                            <i class="fas fa-mouse-pointer"></i>
+                            <span class="stat-value">${url.clicks || 0}</span>
+                            <span>click${(url.clicks || 0) !== 1 ? 's' : ''}</span>
+                        </div>
+                        <div class="stat-item">
+                            <i class="fas fa-calendar"></i>
+                            <span>${this.formatDate(url.created_at)}</span>
+                        </div>
                     </div>
                 </div>
-            </div>
             `;
         }).join('');
 
-        // Event delegation ile buton olaylarını bağla
         this.bindUrlListEvents();
     }
 
-    // URL listesi için olayları bağla (event delegation)
+    // URL listesi event'lerini bağla
     bindUrlListEvents() {
         const urlsList = document.getElementById('urlsList');
         if (!urlsList) return;
 
-        // Önceki event listener'ları temizle
         urlsList.removeEventListener('click', this.handleUrlListClick);
 
-        // Event delegation ile tek bir listener ekle
         this.handleUrlListClick = (e) => {
             e.preventDefault();
             e.stopPropagation();
@@ -672,57 +650,57 @@ class UrlShortener {
             const target = e.target.closest('button');
             if (!target) return;
 
+            const urlId = target.getAttribute('data-id');
+            const shortUrl = target.getAttribute('data-url');
+            const title = target.getAttribute('data-title');
+
             if (target.classList.contains('copy-btn')) {
-                const shortUrl = target.getAttribute('data-url');
-                console.log('Copy button clicked, URL:', shortUrl);
                 this.copyShortUrl(shortUrl);
             } else if (target.classList.contains('edit-btn')) {
-                const urlId = target.getAttribute('data-id');
-                const currentTitle = target.getAttribute('data-title');
-                console.log('Edit button clicked, ID:', urlId, 'Title:', currentTitle);
-                this.editTitle(urlId, currentTitle);
+                this.editTitle(urlId, title);
             } else if (target.classList.contains('delete-btn')) {
-                const urlId = target.getAttribute('data-id');
-                const urlTitle = target.getAttribute('data-title');
-                console.log('Delete button clicked, ID:', urlId, 'Title:', urlTitle);
-                this.confirmDeleteUrl(urlId, urlTitle);
+                this.confirmDeleteUrl(urlId, title);
             }
         };
 
         urlsList.addEventListener('click', this.handleUrlListClick);
     }
 
-    // Kısa URL'yi kopyala (copy tuşu)
+    // Kısa URL kopyala
     async copyShortUrl(shortUrl) {
         try {
             await navigator.clipboard.writeText(shortUrl);
-            this.showToast('Kısa URL kopyalandı!', 'success');
+            this.showToast('Short URL copied!', 'success');
         } catch (error) {
             console.error('Copy failed:', error);
-            // Fallback for older browsers
-            const textArea = document.createElement('textarea');
-            textArea.value = shortUrl;
-            document.body.appendChild(textArea);
-            textArea.select();
-            try {
-                document.execCommand('copy');
-                this.showToast('Kısa URL kopyalandı!', 'success');
-            } catch (fallbackError) {
-                this.showToast('Kopyalama başarısız', 'error');
-            }
-            document.body.removeChild(textArea);
+            this.fallbackCopy(shortUrl);
         }
     }
 
-    // Başlığı düzenle (edit tuşu)
+    // Kopyalama fallback
+    fallbackCopy(text) {
+        const textArea = document.createElement('textarea');
+        textArea.value = text;
+        document.body.appendChild(textArea);
+        textArea.select();
+
+        try {
+            document.execCommand('copy');
+            this.showToast('Short URL copied!', 'success');
+        } catch (error) {
+            this.showToast('Copy failed', 'error');
+        }
+
+        document.body.removeChild(textArea);
+    }
+
+    // Başlık düzenle
     editTitle(urlId, currentTitle) {
-        // Mevcut başlığı temizle (HTML encode edilmişse decode et)
         const cleanTitle = currentTitle.replace(/&#39;/g, "'");
         const displayTitle = cleanTitle === 'Untitled' ? '' : cleanTitle;
-
         const newTitle = prompt('Yeni başlık girin:', displayTitle);
 
-        if (newTitle !== null) { // Kullanıcı Cancel'a basmadıysa
+        if (newTitle !== null) {
             const finalTitle = newTitle.trim() || 'Untitled';
             this.updateUrlTitle(urlId, finalTitle);
         }
@@ -740,21 +718,20 @@ class UrlShortener {
             const result = await response.json();
 
             if (result.success) {
-                this.showToast('Başlık başarıyla güncellendi!', 'success');
-                this.loadUrls(); // URL listesini yenile
+                this.showToast('Title updated successfully!', 'success');
+                this.loadUrls();
             } else {
-                this.showToast(result.error || 'Başlık güncellenemedi', 'error');
+                this.showToast(result.error || 'Title could not be updated', 'error');
             }
         } catch (error) {
             console.error('Update title error:', error);
-            this.showToast('Başlık güncellenemedi', 'error');
+            this.showToast('Title could not be updated', 'error');
         }
     }
 
     // URL silme onayı
     confirmDeleteUrl(urlId, urlTitle) {
         const confirmDelete = confirm(`"${urlTitle}" başlıklı URL'i silmek istediğinize emin misiniz?`);
-
         if (confirmDelete) {
             this.deleteUrl(urlId);
         }
@@ -771,26 +748,26 @@ class UrlShortener {
             const result = await response.json();
 
             if (result.success) {
-                this.showToast('URL başarıyla silindi.', 'success');
-                this.loadUrls(); // URL listesini yenile
+                this.showToast('The URL was deleted successfully.', 'success');
+                this.loadUrls();
             } else {
-                this.showToast(result.error || 'URL silinemedi', 'error');
+                this.showToast(result.error || 'URL could not be deleted', 'error');
             }
         } catch (error) {
             console.error('Delete URL error:', error);
-            this.showToast('URL silinemedi', 'error');
+            this.showToast('URL could not be deleted', 'error');
         }
     }
 
-    // Logout fonksiyonu
+    // Çıkış yap
     logout() {
         this.authToken = null;
         this.currentUser = null;
         localStorage.removeItem('authToken');
         sessionStorage.removeItem('authToken');
-        this.updateAuthUI(false); // UI'ı güncelle
-        this.loadUrls(); // URL listesini yenile
-        this.showToast('Başarıyla çıkış yaptınız.', 'info');
+        this.updateAuthUI(false);
+        this.loadUrls();
+        this.showToast('Successfully logged out.', 'info');
     }
 
     // Tarih formatla
@@ -802,18 +779,14 @@ class UrlShortener {
         const diffTime = Math.abs(now - date);
         const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
-        if (diffDays === 1) {
-            return 'Bugün';
-        } else if (diffDays === 2) {
-            return 'Dün';
-        } else if (diffDays <= 7) {
-            return `${diffDays - 1} gün önce`;
-        } else {
-            return date.toLocaleDateString('tr-TR');
-        }
+        if (diffDays === 1) return 'Bugün';
+        if (diffDays === 2) return 'Dün';
+        if (diffDays <= 7) return `${diffDays - 1} gün önce`;
+
+        return date.toLocaleDateString('tr-TR');
     }
 
-    // Modal kapatma
+    // Modal kapat
     closeStatsModal() {
         const modal = document.getElementById('statsModal');
         if (modal) {
@@ -864,16 +837,10 @@ class UrlShortener {
         `;
 
         container.appendChild(toast);
-
-        // Animasyon için setTimeout
         setTimeout(() => toast.classList.add('show'), 100);
 
-        // Otomatik kaldırma
-        const autoRemove = setTimeout(() => {
-            this.removeToast(toast);
-        }, 5000);
+        const autoRemove = setTimeout(() => this.removeToast(toast), 5000);
 
-        // Manuel kaldırma
         toast.querySelector('.toast-close').addEventListener('click', () => {
             clearTimeout(autoRemove);
             this.removeToast(toast);
@@ -888,17 +855,7 @@ class UrlShortener {
             }
         }, 300);
     }
-
-    // HTML özel karakterlerini kaçış karakterleriyle değiştir
-    escapeHtml(unsafe) {
-        return unsafe
-            .replace(/&/g, "&amp;")
-            .replace(/</g, "&lt;")
-            .replace(/>/g, "&gt;")
-            .replace(/"/g, "&quot;")
-            .replace(/'/g, "&#039;");
-    }
 }
 
-// Initialize the application
+// Uygulamayı başlat
 const urlShortener = new UrlShortener();

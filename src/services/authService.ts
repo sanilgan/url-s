@@ -8,20 +8,14 @@ const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-producti
 
 export class AuthService {
 
-  /**
-   * Bcryptjs ile şifre hashleme - güvenli ayarlarla
-   */
   private async hashPassword(password: string): Promise<string> {
     try {
-      return await bcrypt.hash(password, 12); // 12 rounds - çok güvenli
+      return await bcrypt.hash(password, 12);
     } catch (error) {
-      throw new Error('Şifre hashleme hatası');
+      throw new Error('Password hashing error');
     }
   }
 
-  /**
-   * Bcryptjs ile şifre doğrulama
-   */
   private async verifyPassword(password: string, hash: string): Promise<boolean> {
     try {
       return await bcrypt.compare(password, hash);
@@ -30,52 +24,56 @@ export class AuthService {
     }
   }
 
-  /**
-   * Şifre güvenlik kontrolleri
-   */
   private validatePassword(password: string): void {
     if (!password || password.length < 8) {
-      throw new Error('Şifre en az 8 karakter olmalıdır');
+      throw new Error('Password must be at least 8 characters long');
     }
 
     if (!/(?=.*[a-z])/.test(password)) {
-      throw new Error('Şifre en az bir küçük harf içermelidir');
+      throw new Error('Password must contain at least one lowercase letter');
     }
 
     if (!/(?=.*[A-Z])/.test(password)) {
-      throw new Error('Şifre en az bir büyük harf içermelidir');
+      throw new Error('Password must contain at least one uppercase letter');
     }
 
     if (!/(?=.*\d)/.test(password)) {
-      throw new Error('Şifre en az bir rakam içermelidir');
+      throw new Error('Password must contain at least one number');
     }
   }
 
-  /**
-   * Email format kontrolleri
-   */
   private validateEmail(email: string): void {
     if (!email || !validator.isEmail(email)) {
-      throw new Error('Geçerli bir email adresi giriniz');
+      throw new Error('Please enter a valid email address');
     }
 
-    if (email.length > 320) { // RFC 5321 limiti
-      throw new Error('Email adresi çok uzun');
+    if (email.length > 320) {
+      throw new Error('Email address is too long');
     }
   }
 
-  /**
-   * Kullanıcı kaydı - güvenli argon2 ile
-   */
+  private createToken(userId: number, email: string): string {
+    return jwt.sign(
+      {
+        userId,
+        email,
+        iat: Math.floor(Date.now() / 1000)
+      },
+      JWT_SECRET,
+      {
+        expiresIn: '7d',
+        algorithm: 'HS256'
+      }
+    );
+  }
+
   async register(email: string, password: string, name?: string): Promise<{ user: Omit<User, 'password_hash'>, token: string }> {
     const client = await pool.connect();
 
     try {
-      // Input validasyon
       this.validateEmail(email);
       this.validatePassword(password);
 
-      // Email normalize et
       const normalizedEmail = validator.normalizeEmail(email) || email.toLowerCase().trim();
 
       // Mevcut kullanıcı kontrolü
@@ -85,13 +83,11 @@ export class AuthService {
       );
 
       if (existingUser.rows.length > 0) {
-        throw new Error('Bu email adresi zaten kayıtlı');
+        throw new Error('This email address is already registered');
       }
 
-      // Güvenli şifre hashleme
       const hashedPassword = await this.hashPassword(password);
 
-      // Kullanıcı oluştur
       const result = await client.query(`
         INSERT INTO users (email, password_hash, name, created_at, is_active)
         VALUES ($1, $2, $3, NOW(), true)
@@ -99,20 +95,7 @@ export class AuthService {
       `, [normalizedEmail, hashedPassword, name || 'Kullanıcı']);
 
       const user = result.rows[0];
-
-      // JWT token oluştur
-      const token = jwt.sign(
-        {
-          userId: user.id,
-          email: user.email,
-          iat: Math.floor(Date.now() / 1000)
-        },
-        JWT_SECRET,
-        {
-          expiresIn: '7d',
-          algorithm: 'HS256'
-        }
-      );
+      const token = this.createToken(user.id, user.email);
 
       return {
         user: {
@@ -135,24 +118,19 @@ export class AuthService {
     }
   }
 
-  /**
-   * Kullanıcı girişi - güvenli argon2 doğrulama
-   */
   async login(email: string, password: string): Promise<{ user: Omit<User, 'password_hash'>, token: string }> {
     const client = await pool.connect();
 
     try {
-      // Input validasyon
       this.validateEmail(email);
 
       if (!password) {
-        throw new Error('Şifre gereklidir');
+        throw new Error('Password is required');
       }
 
-      // Email normalize et
       const normalizedEmail = validator.normalizeEmail(email) || email.toLowerCase().trim();
+      console.log('Login attempt for email:', normalizedEmail);
 
-      // Kullanıcı sorgula
       const result = await client.query(
         `SELECT id, email, name, password_hash, created_at, is_active 
          FROM users 
@@ -160,32 +138,36 @@ export class AuthService {
         [normalizedEmail]
       );
 
+      console.log('User found in database:', result.rows.length > 0);
+
       if (result.rows.length === 0) {
-        throw new Error('Geçersiz email veya şifre');
+        console.log('No user found with email:', normalizedEmail);
+        throw new Error('Invalid email or password');
       }
 
       const user = result.rows[0];
+      console.log('User data:', {
+        id: user.id,
+        email: user.email,
+        hasPasswordHash: !!user.password_hash,
+        passwordHashLength: user.password_hash ? user.password_hash.length : 0
+      });
 
-      // Şifre doğrulama
+      // Şifre doğrulama öncesi debug
+      console.log('Password verification - Input password length:', password.length);
+      console.log('Stored hash starts with:', user.password_hash ? user.password_hash.substring(0, 10) : 'null');
+
       const isValidPassword = await this.verifyPassword(password, user.password_hash);
+      console.log('Password verification result:', isValidPassword);
 
       if (!isValidPassword) {
-        throw new Error('Geçersiz email veya şifre');
+        console.log('Password verification failed for user:', user.email);
+        throw new Error('Invalid email or password');
       }
 
-      // JWT token oluştur
-      const token = jwt.sign(
-        {
-          userId: user.id,
-          email: user.email,
-          iat: Math.floor(Date.now() / 1000)
-        },
-        JWT_SECRET,
-        {
-          expiresIn: '7d',
-          algorithm: 'HS256'
-        }
-      );
+      const token = this.createToken(user.id, user.email);
+
+      console.log('Login successful for user:', user.email);
 
       return {
         user: {
@@ -199,38 +181,24 @@ export class AuthService {
       };
 
     } catch (error) {
+      console.error('Login error details:', error);
       if (error instanceof Error) {
         throw error;
       }
-      throw new Error('Giriş sırasında hata oluştu');
+      throw new Error('Error occurred during login');
     } finally {
       client.release();
     }
   }
 
-  /**
-   * Token doğrulama
-   */
-  async verifyToken(token: string): Promise<{ userId: number; email: string }> {
+  async verifyToken(token: string): Promise<any> {
     try {
-      const decoded = jwt.verify(token, JWT_SECRET, { algorithms: ['HS256'] }) as any;
-
-      if (!decoded.userId || !decoded.email) {
-        throw new Error('Geçersiz token yapısı');
-      }
-
-      return {
-        userId: decoded.userId,
-        email: decoded.email
-      };
+      return jwt.verify(token, JWT_SECRET);
     } catch (error) {
-      throw new Error('Geçersiz veya süresi dolmuş token');
+      throw new Error('Invalid or expired token');
     }
   }
 
-  /**
-   * Şifre sıfırlama token'ı oluştur
-   */
   async generatePasswordResetToken(email: string): Promise<string> {
     const client = await pool.connect();
 
@@ -238,72 +206,59 @@ export class AuthService {
       this.validateEmail(email);
       const normalizedEmail = validator.normalizeEmail(email) || email.toLowerCase().trim();
 
-      // Kullanıcı var mı kontrol et
-      const userResult = await client.query(
+      const result = await client.query(
         'SELECT id FROM users WHERE email = $1 AND is_active = true',
         [normalizedEmail]
       );
 
-      if (userResult.rows.length === 0) {
-        throw new Error('Bu email adresi ile kayıtlı kullanıcı bulunamadı');
+      if (result.rows.length === 0) {
+        throw new Error('User not found');
       }
 
-      // Reset token oluştur (15 dakika geçerli)
-      const resetToken = jwt.sign(
-        {
-          email: normalizedEmail,
-          purpose: 'password_reset',
-          iat: Math.floor(Date.now() / 1000)
-        },
+      return jwt.sign(
+        { userId: result.rows[0].id, email: normalizedEmail, type: 'password_reset' },
         JWT_SECRET,
-        {
-          expiresIn: '15m',
-          algorithm: 'HS256'
-        }
+        { expiresIn: '1h' }
       );
 
-      return resetToken;
-
+    } catch (error) {
+      if (error instanceof Error) {
+        throw error;
+      }
+      throw new Error('Error generating password reset token');
     } finally {
       client.release();
     }
   }
 
-  /**
-   * Şifre sıfırlama
-   */
   async resetPassword(token: string, newPassword: string): Promise<void> {
     const client = await pool.connect();
 
     try {
-      // Token doğrula
-      const decoded = jwt.verify(token, JWT_SECRET, { algorithms: ['HS256'] }) as any;
+      const decoded = jwt.verify(token, JWT_SECRET) as any;
 
-      if (decoded.purpose !== 'password_reset') {
-        throw new Error('Geçersiz reset token');
+      if (decoded.type !== 'password_reset') {
+        throw new Error('Invalid token type');
       }
 
-      // Yeni şifre validasyonu
       this.validatePassword(newPassword);
 
-      // Yeni şifre hashleme
       const hashedPassword = await this.hashPassword(newPassword);
 
-      // Şifreyi güncelle
       const result = await client.query(
-        'UPDATE users SET password_hash = $1 WHERE email = $2 AND is_active = true',
-        [hashedPassword, decoded.email]
+        'UPDATE users SET password_hash = $1 WHERE id = $2 AND is_active = true',
+        [hashedPassword, decoded.userId]
       );
 
       if (result.rowCount === 0) {
-        throw new Error('Kullanıcı bulunamadı veya şifre güncellenemedi');
+        throw new Error('User not found or inactive');
       }
 
     } catch (error) {
       if (error instanceof Error) {
         throw error;
       }
-      throw new Error('Şifre sıfırlama hatası');
+      throw new Error('Password reset error');
     } finally {
       client.release();
     }

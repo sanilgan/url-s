@@ -586,6 +586,45 @@ body {
   gap: var(--space-4);
 }
 
+.sort-controls {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-right: var(--space-4);
+}
+
+.sort-btn {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  position: relative;
+  transition: all 0.2s ease;
+}
+
+.sort-btn .sort-icon {
+  font-size: var(--font-size-xs);
+  opacity: 0.6;
+  transition: all 0.2s ease;
+}
+
+.sort-btn.active {
+  background: var(--primary-blue);
+  color: var(--white);
+  border-color: var(--primary-blue);
+}
+
+.sort-btn.active .sort-icon {
+  opacity: 1;
+}
+
+.sort-btn.sort-asc .sort-icon:before {
+  content: "\f0de"; /* fa-sort-up */
+}
+
+.sort-btn.sort-desc .sort-icon:before {
+  content: "\f0dd"; /* fa-sort-down */
+}
+
 .search-box {
   position: relative;
   display: flex;
