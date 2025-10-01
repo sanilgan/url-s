@@ -111,10 +111,5 @@ public/              # Frontend dosyları
 4. Branch'inizi push edin (`git push origin feature/amazing-feature`)
 5. Pull Request açın
 
-## 📄 Lisans
 
-Bu proje MIT lisansı altında lisanslanmıştır.
 
-## 👨‍💻 Geliştirici
-
-Zeynep Anılgan - [GitHub](https://github.com/yourusername)
