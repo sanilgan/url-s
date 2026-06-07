@@ -1,20 +1,28 @@
 {
   "compilerOptions": {
-    "target": "ES2020",
-    "module": "commonjs",
+    "target": "ES2020", // Kodunuz ES2020 JavaScript standardına çevrilir
+    "module": "commonjs", //Node.js uyumlu modül sistemi kullanır
     "lib": ["ES2020"],
-    "outDir": "./dist",
-    "rootDir": "./src",
-    "strict": true,
-    "esModuleInterop": true,
+    "outDir": "./dist", //Derlenmiş dosyalar dist klasörüne kaydedilir
+    "rootDir": "./src", // Kaynak kodlar src klasöründe bulunur
+    "strict": true, // Sıkı tip kontrolü aktif (hataları erkenden yakalar)
+    "esModuleInterop": true, //ES6 ve CommonJS modülleri birlikte kullanabilir
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "resolveJsonModule": true,
     "declaration": true,
     "declarationMap": true,
-    "sourceMap": true
+    "sourceMap": true // Debug için kaynak haritaları oluşturur
   },
-  "include": ["src/**/*"],
-  "exclude": ["node_modules", "dist"]
+  "include": ["src/**/*"], //Sadece src klasöründeki dosyaları derle
+  "exclude": ["node_modules", "dist"]  // Bu klasörleri derleme sürecine dahil etme
 }
 
+//TypeScript'i "akıllı JavaScript" olarak düşünün. Bu dosya TypeScript derleyicisine:
+//
+//
+//"Hangi klasördeki dosyaları işleyeceğini"
+//"Nasıl JavaScript'e çevireceğini"
+//"Nerede kaydedeceğini"
+//"Hangi kuralları uygulayacağını"
+//söyler. Yoksa TypeScript kodu çalışmaz, sadece JavaScript çalışır tarayıcılarda ve Node.js'te.

@@ -11,8 +11,12 @@ class UrlShortener {
 
     init() {
         this.bindEvents();
-        this.checkAuthStatus();
-        this.loadUrls();
+        this.initializeData();
+    }
+
+    async initializeData() {
+        await this.checkAuthStatus();
+        await this.loadUrls();
     }
 
     // Authentication durumunu kontrol et
@@ -82,6 +86,18 @@ class UrlShortener {
         const copyBtn = document.getElementById('copyBtn');
         if (copyBtn) {
             copyBtn.addEventListener('click', () => this.copyToClipboard());
+        }
+
+        // QR Code button
+        const qrBtn = document.getElementById('qrBtn');
+        if (qrBtn) {
+            qrBtn.addEventListener('click', () => this.showQRCode());
+        }
+
+        // Close QR Modal
+        const closeQrModal = document.getElementById('closeQrModal');
+        if (closeQrModal) {
+            closeQrModal.addEventListener('click', () => this.closeQRModal());
         }
 
         // Search
@@ -234,6 +250,8 @@ class UrlShortener {
                 this.currentUser = result.data.user;
 
                 // Token'ı sakla
+                localStorage.removeItem('authToken');
+                sessionStorage.removeItem('authToken');
                 if (rememberMe) {
                     localStorage.setItem('authToken', this.authToken);
                 } else {
@@ -389,6 +407,45 @@ class UrlShortener {
         }
     }
 
+    // QR Kod göster
+    showQRCode() {
+        const shortUrl = document.getElementById('shortUrl').value;
+        if (!shortUrl) return;
+
+        const qrModal = document.getElementById('qrModal');
+        const qrContainer = document.getElementById('qrcode');
+        const qrUrl = document.getElementById('qrUrl');
+
+        // QR container'ı temizle
+        qrContainer.innerHTML = '';
+
+        // QR kodu oluştur (qrcode-generator kütüphanesi ile)
+        const typeNumber = 4;
+        const errorCorrectionLevel = 'L';
+        const qr = qrcode(typeNumber, errorCorrectionLevel);
+        qr.addData(shortUrl);
+        qr.make();
+
+        // QR kodu HTML olarak ekle
+        qrContainer.innerHTML = qr.createImgTag(5);
+
+        // URL'i göster
+        qrUrl.textContent = shortUrl;
+
+        // Modal'ı göster
+        qrModal.classList.remove('hidden');
+        qrModal.classList.add('show');
+    }
+
+    // QR Modal'ı kapat
+    closeQRModal() {
+        const qrModal = document.getElementById('qrModal');
+        qrModal.classList.remove('show');
+        setTimeout(() => {
+            qrModal.classList.add('hidden');
+        }, 300);
+    }
+
     // Gelişmiş seçenekleri aç/kapat
     toggleAdvancedOptions() {
         const advancedOptions = document.getElementById('advancedOptions');
@@ -482,6 +539,7 @@ class UrlShortener {
         // Giriş yapmamış kullanıcı
         if (!this.authToken) {
             urlsList.innerHTML = this.getEmptyStateHTML('lock', 'Log in to view your links', 'Please sign in to view and manage your shortened links.');
+            this.bindEmptyStateEvents();
             return;
         }
 
@@ -504,7 +562,7 @@ class UrlShortener {
     getEmptyStateHTML(icon, title, description) {
         const loginButton = !this.authToken ? `
             <div style="margin-top: 20px;">
-                <button class="btn-login-extra-small" onclick="urlShortener.showSignUpModal()">
+                <button class="btn-login-extra-small" id="emptyStateLoginBtn">
                     <i class="fas fa-log-in-alt"></i> Log In
                 </button>
             </div>
@@ -520,6 +578,13 @@ class UrlShortener {
                 ${loginButton}
             </div>
         `;
+    }
+
+    bindEmptyStateEvents() {
+        const loginButton = document.getElementById('emptyStateLoginBtn');
+        if (loginButton) {
+            loginButton.addEventListener('click', () => this.showLoginModal());
+        }
     }
 
     // Sıralama event'lerini bağla
@@ -595,25 +660,32 @@ class UrlShortener {
         if (!urlsList) return;
 
         urlsList.innerHTML = urls.map(url => {
-            const shortUrl = url.short_url || `${window.location.origin}/${url.short_code}`;
-            const displayUrl = url.display_url || `x.ly/${url.short_code}`;
+            const rawShortUrl = url.short_url || `${window.location.origin}/${url.short_code}`;
+            const shortUrl = this.safeHttpUrl(rawShortUrl);
+            const displayUrl = this.escapeHtml(url.display_url || `x.ly/${url.short_code}`);
+            const title = this.escapeHtml(url.title || 'Untitled');
+            const titleAttribute = this.escapeAttribute(url.title || 'Untitled');
+            const originalUrl = this.escapeHtml(url.original_url || '');
+            const shortUrlAttribute = this.escapeAttribute(shortUrl);
+            const urlId = Number.isInteger(Number(url.id)) ? Number(url.id) : 0;
+            const clicks = Number.isFinite(Number(url.clicks)) ? Number(url.clicks) : 0;
 
             return `
-                <div class="link-item" data-id="${url.id}">
+                <div class="link-item" data-id="${urlId}">
                     <div class="link-header">
                         <div class="link-info">
-                            <h3>${url.title || 'Untitled'}</h3>
-                            <a href="${shortUrl}" target="_blank" class="link-url">${displayUrl}</a>
-                            <div class="link-original">${url.original_url}</div>
+                            <h3>${title}</h3>
+                            <a href="${shortUrlAttribute}" target="_blank" rel="noopener noreferrer" class="link-url">${displayUrl}</a>
+                            <div class="link-original">${originalUrl}</div>
                         </div>
                         <div class="link-actions">
-                            <button class="btn btn-outline-sm copy-btn" data-url="${shortUrl}">
+                            <button class="btn btn-outline-sm copy-btn" data-url="${shortUrlAttribute}">
                                 <i class="fas fa-copy"></i> Copy
                             </button>
-                            <button class="btn btn-outline-sm edit-btn" data-id="${url.id}" data-title="${url.title || 'Untitled'}">
+                            <button class="btn btn-outline-sm edit-btn" data-id="${urlId}" data-title="${titleAttribute}">
                                 <i class="fas fa-edit"></i> Edit
                             </button>
-                            <button class="btn btn-outline-sm delete-btn" data-id="${url.id}" data-title="${url.title || 'Untitled'}">
+                            <button class="btn btn-outline-sm delete-btn" data-id="${urlId}" data-title="${titleAttribute}">
                                 <i class="fas fa-trash"></i> Delete
                             </button>
                         </div>
@@ -621,8 +693,8 @@ class UrlShortener {
                     <div class="link-stats">
                         <div class="stat-item">
                             <i class="fas fa-mouse-pointer"></i>
-                            <span class="stat-value">${url.clicks || 0}</span>
-                            <span>click${(url.clicks || 0) !== 1 ? 's' : ''}</span>
+                            <span class="stat-value">${clicks}</span>
+                            <span>click${clicks !== 1 ? 's' : ''}</span>
                         </div>
                         <div class="stat-item">
                             <i class="fas fa-calendar"></i>
@@ -634,6 +706,28 @@ class UrlShortener {
         }).join('');
 
         this.bindUrlListEvents();
+    }
+
+    escapeHtml(value) {
+        return String(value)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    }
+
+    escapeAttribute(value) {
+        return this.escapeHtml(value).replace(/`/g, '&#96;');
+    }
+
+    safeHttpUrl(value) {
+        try {
+            const url = new URL(value, window.location.origin);
+            return ['http:', 'https:'].includes(url.protocol) ? url.href : '#';
+        } catch (error) {
+            return '#';
+        }
     }
 
     // URL listesi event'lerini bağla
@@ -698,7 +792,7 @@ class UrlShortener {
     editTitle(urlId, currentTitle) {
         const cleanTitle = currentTitle.replace(/&#39;/g, "'");
         const displayTitle = cleanTitle === 'Untitled' ? '' : cleanTitle;
-        const newTitle = prompt('Yeni başlık girin:', displayTitle);
+        const newTitle = prompt('Enter new title:', displayTitle);
 
         if (newTitle !== null) {
             const finalTitle = newTitle.trim() || 'Untitled';
@@ -828,20 +922,30 @@ class UrlShortener {
             info: 'fas fa-info-circle'
         };
 
-        toast.innerHTML = `
-            <div class="toast-content">
-                <i class="${iconMap[type] || iconMap.info}"></i>
-                <span>${message}</span>
-            </div>
-            <button class="toast-close">&times;</button>
-        `;
+        const content = document.createElement('div');
+        content.className = 'toast-content';
+
+        const icon = document.createElement('i');
+        icon.className = iconMap[type] || iconMap.info;
+
+        const text = document.createElement('span');
+        text.textContent = String(message);
+
+        const closeButton = document.createElement('button');
+        closeButton.className = 'toast-close';
+        closeButton.type = 'button';
+        closeButton.setAttribute('aria-label', 'Close notification');
+        closeButton.textContent = '×';
+
+        content.append(icon, text);
+        toast.append(content, closeButton);
 
         container.appendChild(toast);
         setTimeout(() => toast.classList.add('show'), 100);
 
         const autoRemove = setTimeout(() => this.removeToast(toast), 5000);
 
-        toast.querySelector('.toast-close').addEventListener('click', () => {
+        closeButton.addEventListener('click', () => {
             clearTimeout(autoRemove);
             this.removeToast(toast);
         });

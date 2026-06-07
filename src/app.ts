@@ -5,25 +5,52 @@ import dotenv from 'dotenv';
 import path from 'path';
 import urlRoutes from './routes/urlRoutes';
 import authRoutes from './routes/authRoutes';
-
+import { UrlController } from './controllers/urlController';
+// ana sunucu dosyasıdır. Express.js web sunucusunu kuran ve yapılandıran merkezi dosyadır.
 dotenv.config();
 
 const app = express();
+const urlController = new UrlController();
+//Express.js framework'ünü başlatır
+//HTTP isteklerini dinleyecek sunucuyu oluşturur
 
 // Middleware
-app.use(helmet());
-app.use(cors());
-app.use(express.json());
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", 'https://unpkg.com'],
+      styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com', 'https://cdnjs.cloudflare.com'],
+      fontSrc: ["'self'", 'https://fonts.gstatic.com', 'https://cdnjs.cloudflare.com', 'data:'],
+      imgSrc: ["'self'", 'data:'],
+      connectSrc: ["'self'"]
+    }
+  }
+})); //güvenlik başlıklarını ekler
+//Helmet, Express.js uygulamalarında güvenliği artırmak için kullanılan bir middleware'dir.
+app.use(cors()); // farklı kaynaklardan gelen istekleri kabul eder
+app.use(express.json()); //JSON verilerini parse eder
+//Helmet: Güvenlik açıklarını kapatır
+// CORS: Frontend'in backend'e erişmesini sağlar
+// JSON Parser: Gelen verileri JavaScript objesine çevirir
 app.use(express.urlencoded({ extended: true }));
-app.use(express.static(path.join(__dirname, '../public')));
+app.use(express.static(path.join(process.cwd(), 'public')));
 app.set('trust proxy', true);
 
-// Redirect route - API route'larından önce
+app.get('/api/health', (req, res) => {
+  res.json({
+    success: true,
+    service: 'url-shortener',
+    timestamp: new Date().toISOString()
+  });
+});
+
+// Ana Redirect Fonksiyonu
 app.get('/:shortCode([a-zA-Z0-9_-]+)', async (req, res) => {
+  //localhost:3000/abc123 gibi istekleri yakalar
+  // Veritabanından gerçek URL'yi bulup yönlendirir
+  // Bu URL kısaltıcının ana özelliği
   try {
-    const { shortCode } = req.params;
-    const { UrlController } = await import('./controllers/urlController');
-    const urlController = new UrlController();
     await urlController.redirectToOriginal(req, res);
   } catch (error) {
     console.error('Redirect error:', error);
@@ -41,25 +68,14 @@ app.get('/:shortCode([a-zA-Z0-9_-]+)', async (req, res) => {
   }
 });
 
-// API Routes
-app.use('/api/urls', urlRoutes);
-app.use('/api/auth', authRoutes);
+// Tüm Route'ları Bağlar
+app.use('/api/urls', urlRoutes); // URL kısaltma işlemleri için API rotaları
+app.use('/api/auth', authRoutes); // Kullanıcı kimlik doğrulama işlemleri için API rotaları
 
-// Catch-all route
-app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, '../public/index.html'));
-});
-
-// Error handling
+// Error handling -Beklenmeyen hatalar olduğunda kullanıcıya düzgün mesaj gösterir
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
   console.error('Error:', err);
   res.status(500).json({ success: false, error: 'Internal server error' });
-});
-
-const PORT = process.env.PORT || 3005;
-
-app.listen(PORT, () => {
-  console.log(`🚀 Server running on http://localhost:${PORT}`);
 });
 
 export default app;

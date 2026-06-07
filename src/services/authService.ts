@@ -1,10 +1,13 @@
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 import pool from '../config/database';
+import { getJwtSecret } from '../config/auth';
 import { User } from '../types';
 import validator from 'validator';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
+//kimlik doğrulama ve güvenlik işlemlerini yöneten ana dosyadır.
+// Kullanıcı girişi, kayıt, şifre yönetimi gibi tüm güvenlik işlemlerini burada yapar.
+// bcryptjs native binary gerektirmediği için Vercel serverless ortamında güvenilir çalışır.
 
 export class AuthService {
 
@@ -23,7 +26,11 @@ export class AuthService {
       return false;
     }
   }
-
+//Şifre şartları:
+// En az 8 karakter
+// En az 1 küçük harf (a-z)
+// En az 1 büyük harf (A-Z)
+// En az 1 rakam (0-9)
   private validatePassword(password: string): void {
     if (!password || password.length < 8) {
       throw new Error('Password must be at least 8 characters long');
@@ -41,7 +48,7 @@ export class AuthService {
       throw new Error('Password must contain at least one number');
     }
   }
-
+// Email doğrulama:
   private validateEmail(email: string): void {
     if (!email || !validator.isEmail(email)) {
       throw new Error('Please enter a valid email address');
@@ -52,6 +59,9 @@ export class AuthService {
     }
   }
 
+//7 gün geçerli giriş anahtarları
+// HS256 algoritması ile imzalama
+// Her token'da kullanıcı ID'si ve e-posta bilgisi
   private createToken(userId: number, email: string): string {
     return jwt.sign(
       {
@@ -59,14 +69,14 @@ export class AuthService {
         email,
         iat: Math.floor(Date.now() / 1000)
       },
-      JWT_SECRET,
+      getJwtSecret(),
       {
         expiresIn: '7d',
         algorithm: 'HS256'
       }
     );
   }
-
+// Kullanıcı kayıt işlemi:
   async register(email: string, password: string, name?: string): Promise<{ user: Omit<User, 'password_hash'>, token: string }> {
     const client = await pool.connect();
 
@@ -92,7 +102,7 @@ export class AuthService {
         INSERT INTO users (email, password_hash, name, created_at, is_active)
         VALUES ($1, $2, $3, NOW(), true)
         RETURNING id, email, name, created_at, is_active
-      `, [normalizedEmail, hashedPassword, name || 'Kullanıcı']);
+      `, [normalizedEmail, hashedPassword, name || 'User']);
 
       const user = result.rows[0];
       const token = this.createToken(user.id, user.email);
@@ -112,12 +122,12 @@ export class AuthService {
       if (error instanceof Error) {
         throw error;
       }
-      throw new Error('Kullanıcı kaydı sırasında hata oluştu');
+      throw new Error('Error occurred during user registration');
     } finally {
       client.release();
     }
   }
-
+// Kullanıcı girişi işlemi:
   async login(email: string, password: string): Promise<{ user: Omit<User, 'password_hash'>, token: string }> {
     const client = await pool.connect();
 
@@ -132,8 +142,8 @@ export class AuthService {
       console.log('Login attempt for email:', normalizedEmail);
 
       const result = await client.query(
-        `SELECT id, email, name, password_hash, created_at, is_active 
-         FROM users 
+        `SELECT id, email, name, password_hash, created_at, is_active
+         FROM users
          WHERE email = $1 AND is_active = true`,
         [normalizedEmail]
       );
@@ -190,15 +200,18 @@ export class AuthService {
       client.release();
     }
   }
-
+//API isteklerinde token geçerliliğini kontrol eder
+// Süresi dolmuş token'ları reddeder
   async verifyToken(token: string): Promise<any> {
     try {
-      return jwt.verify(token, JWT_SECRET);
+      return jwt.verify(token, getJwtSecret());
     } catch (error) {
       throw new Error('Invalid or expired token');
     }
   }
 
+//1 saat geçerli özel token
+// E-posta ile kullanıcı doğrulamas
   async generatePasswordResetToken(email: string): Promise<string> {
     const client = await pool.connect();
 
@@ -217,7 +230,7 @@ export class AuthService {
 
       return jwt.sign(
         { userId: result.rows[0].id, email: normalizedEmail, type: 'password_reset' },
-        JWT_SECRET,
+        getJwtSecret(),
         { expiresIn: '1h' }
       );
 
@@ -231,11 +244,12 @@ export class AuthService {
     }
   }
 
+// Şifre sıfırlama işlemi:
   async resetPassword(token: string, newPassword: string): Promise<void> {
     const client = await pool.connect();
 
     try {
-      const decoded = jwt.verify(token, JWT_SECRET) as any;
+      const decoded = jwt.verify(token, getJwtSecret()) as any;
 
       if (decoded.type !== 'password_reset') {
         throw new Error('Invalid token type');

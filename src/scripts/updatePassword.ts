@@ -5,36 +5,45 @@ async function updateUserPassword(email: string, newPassword: string) {
     const client = await pool.connect();
 
     try {
-        // Yeni şifreyi hash'le
         const hashedPassword = await bcrypt.hash(newPassword, 12);
 
-        // Kullanıcının şifresini güncelle
+        // Kullanıcının şifresini güncelle - veritabanı
         const result = await client.query(
             'UPDATE users SET password_hash = $1 WHERE email = $2',
             [hashedPassword, email]
         );
+        //Kullanıcıyı e-posta ile bulur
+        // Eski şifreyi yeni hash ile değiştirir
+        // SQL injection güvenliği ($1, $2 parametreler)
+        // Kaç satır güncellendiğini kontrol eder
 
         if (result.rowCount === 0) {
-            console.log('Kullanıcı bulunamadı');
+            console.log('User not found');
         } else {
-            console.log(`${email} için şifre başarıyla güncellendi`);
+            console.log(`Password successfully updated for ${email}`);
         }
+        //Kullanıcı bulunamadıysa hata mesajı
+        // Başarılıysa onay mesajı
+        // Geri bildirim sağlar
 
     } catch (error) {
-        console.error('Şifre güncelleme hatası:', error);
+        console.error('Password update error:', error);
     } finally {
         client.release();
         process.exit(0);
     }
 }
 
-// Kullanım: ts-node src/scripts/updatePassword.ts
+// Usage: ts-node src/scripts/updatePassword.ts
 const email = process.argv[2];
 const password = process.argv[3];
 
 if (!email || !password) {
-    console.log('Kullanım: ts-node src/scripts/updatePassword.ts <email> <yeni-şifre>');
+    console.log('Usage: ts-node src/scripts/updatePassword.ts <email> <new-password>');
     process.exit(1);
 }
+//Komut satırından e-posta ve şifre alır
+// Eksik parametre kontrolü yapar
+// Kullanım talimatı gösterir
 
 updateUserPassword(email, password);

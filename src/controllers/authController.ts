@@ -2,8 +2,16 @@ import { Request, Response } from 'express';
 import { authService } from '../services/authService';
 import pool from '../config/database';
 
+//kimlik doğrulama işlemlerinin kalbidir.
+// HTTP isteklerini alıp kimlik doğrulama business logic'ini çalıştıran controller (kontrolcü) dosyasıdır.
+//Bu dosya route'lardan gelen kimlik doğrulama isteklerini alır,
+// authService'e yönlendirir ve sonuçları JSON format'ında kullanıcıya döndürür.
 export class AuthController {
-
+//methodlar, HTTP isteklerini işleyen ve authService'i çağıran fonksiyonlardır.
+  //Yeni kullanıcı kaydı oluşturur
+  // Email, password, name doğrulaması yapar
+  // AuthService'e kayıt işlemini yaptırır
+  // JWT token ile birlikte kullanıcı döndürür
   async register(req: Request, res: Response): Promise<void> {
     try {
       const { email, password, name } = req.body;
@@ -36,7 +44,10 @@ export class AuthController {
       });
     }
   }
-
+//Email/password ile giriş yapar
+// Kimlik bilgilerini doğrular
+// JWT token oluşturur
+// Kullanıcı bilgileri ile token döndürür
   async login(req: Request, res: Response): Promise<void> {
     try {
       const { email, password } = req.body;
@@ -69,7 +80,9 @@ export class AuthController {
       });
     }
   }
-
+//"Şifremi unuttum" işlemi
+// Email adresine reset token gönderir
+// Development mode'da token'ı response'da gösterir
   async forgotPassword(req: Request, res: Response): Promise<void> {
     try {
       const { email } = req.body;
@@ -99,7 +112,9 @@ export class AuthController {
       });
     }
   }
-
+//Reset token ile yeni şifre belirler
+// Token geçerliliğini kontrol eder
+// Şifreyi günceller
   async resetPassword(req: Request, res: Response): Promise<void> {
     try {
       const { token, newPassword } = req.body;
@@ -128,7 +143,10 @@ export class AuthController {
       });
     }
   }
-
+//JWT token'ı doğrular
+// Authorization header'dan token alır
+// Token geçerliliğini kontrol eder
+// Decoded user bilgilerini döndürür
   async verifyToken(req: Request, res: Response): Promise<void> {
     try {
       const authHeader = req.headers.authorization;
@@ -158,7 +176,10 @@ export class AuthController {
       });
     }
   }
-
+//Giriş yapmış kullanıcının profil bilgilerini getirir
+// Token doğrulaması yapar
+// Database'den güncel kullanıcı bilgilerini alır
+// Aktif kullanıcı kontrolü yapar
   async getProfile(req: Request, res: Response): Promise<void> {
     try {
       const authHeader = req.headers.authorization;
@@ -217,3 +238,18 @@ export class AuthController {
 }
 
 export const authController = new AuthController();
+
+//400 Bad Request - Validation hataları
+// 401 Unauthorized - Authentication hataları ,Token/kimlik hataları
+// 404 Not Found - Kullanıcı bulunamadı
+//201 - Created        // register() - Kayıt başarılı
+// 200 - OK            // login(), forgotPassword(), resetPassword(), verifyToken(), getProfile()
+
+
+
+//Hesap açmak istiyorum" → register()
+// "Hesabıma girmek istiyorum" → login()
+// "Şifremi unuttum" → forgotPassword()
+// "Yeni şifre koymak istiyorum" → resetPassword()
+// "Kimliğimi doğrula" → verifyToken()
+// "Hesap bilgilerimi göster" → getProfile()

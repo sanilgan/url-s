@@ -1,115 +1,89 @@
-# URL Shortener 
+# LinkShort
 
-Modern ve kullanıcı dostu URL kısaltma uygulaması. Uzun bağlantıları kısa ve paylaşılabilir linklere dönüştürün, tıklama istatistiklerini takip edin.
+TypeScript, Express ve PostgreSQL ile geliştirilmiş URL kısaltma uygulaması.
 
-## 🚀 Özellikler
+## Özellikler
 
-- ✂️ Uzun URL'leri otomatik kısaltma (x.ly/xxx formatında)
-- 👤 Kullanıcı hesabı sistemi (kayıt/giriş)
-- 📊 Gerçek zamanlı tıklama istatistikleri
-- ✏️ URL başlıklarını düzenleme
-- 📋 Tek tıkla kopyalama
-- 🔒 Güvenli kullanıcı kimlik doğrulama
-- 📱 Responsive mobil tasarım
-- ⚡ Hızlı yönlendirme
+- Kullanıcı kaydı ve JWT ile giriş
+- Oturum açmadan veya kullanıcı hesabıyla kısa link oluşturma
+- Özel kısa kod desteği
+- Link başlığı düzenleme ve link silme
+- Tıklanma sayısı ve son tıklanma zamanı
+- QR kod üretimi
+- Vercel üzerinde sıfır-konfigürasyon Express dağıtımı
 
-## 🛠️ Teknolojiler
+## Teknolojiler
 
-- **Backend:** Node.js, Express.js, TypeScript
-- **Veritabanı:** PostgreSQL
-- **Frontend:** HTML5, CSS3, Vanilla JavaScript
-- **Güvenlik:** JWT, bcrypt
-- **Diğer:** nanoid, validator
+- Node.js 22
+- Express.js ve TypeScript
+- PostgreSQL
+- Argon2 ve JWT
+- HTML, CSS ve Vanilla JavaScript
 
-## 📋 Gereksinimler
+## Yerel Kurulum
 
-- Node.js (v16+)
-- PostgreSQL (v12+)
-- npm
-
-## 🔧 Kurulum
-
-1. **Projeyi klonlayın:**
-   ```bash
-   git clone https://github.com/yourusername/url-shortener.git
-   cd url-shortener
-   ```
-
-2. **Bağımlılıkları yükleyin:**
-   ```bash
-   npm install
-   ```
-
-3. **Environment dosyasını ayarlayın:**
-   `.env` dosyasını oluşturun ve aşağıdaki değerleri ekleyin:
-   ```env
-   DB_HOST=localhost
-   DB_PORT=5433
-   DB_NAME=url_kisaltici
-   DB_USER=postgres
-   DB_PASSWORD=your_password
-   PORT=3002
-   JWT_SECRET=your-secret-key
-   BASE_URL=http://localhost:3002
-   ```
-
-4. **Veritabanını oluşturun:**
-   ```sql
-   CREATE DATABASE url_kisaltici;
-   ```
-
-5. **Tabloları oluşturun:**
-   ```bash
-   npm run init-db
-   ```
-
-6. **Uygulamayı başlatın:**
-   ```bash
-   npm run dev
-   ```
-
-## 📁 Proje Yapısı
-
-```
-src/
-├── config/          # Veritabanı konfigürasyonu
-├── controllers/     # API kontrolcüleri
-├── middleware/      # Kimlik doğrulama middleware
-├── routes/          # API rotaları
-├── services/        # İş mantığı servisleri
-├── scripts/         # Veritabanı yardımcı scriptleri
-└── types/           # TypeScript tip tanımları
-
-public/              # Frontend dosyları
-├── index.html       # Ana sayfa
-├── style.css        # Stil dosyası
-└── app.js           # Frontend JavaScript
+```bash
+npm install
+cp .env.example .env
 ```
 
-## 🚀 Kullanım
+`.env` dosyasındaki PostgreSQL ve `JWT_SECRET` değerlerini doldurun. Ardından:
 
-1. Tarayıcıda `http://localhost:3002` adresine gidin
-2. Hesap oluşturun veya giriş yapın
-3. Uzun URL'nizi girin ve "Shorten" butonuna tıklayın
-4. Kısa linkinizi kopyalayın ve paylaşın
-5. "Links" sekmesinden linklerinizi yönetin
+```bash
+npm run init-db
+npm run dev
+```
 
-## 📊 API Endpoints
+Varsayılan adres: `http://localhost:3005`
 
-- `POST /api/auth/register` - Kullanıcı kaydı
-- `POST /api/auth/login` - Giriş yapma
-- `POST /api/urls/shorten` - URL kısaltma
-- `GET /api/urls` - Kullanıcının URL'leri
-- `PUT /api/urls/:id/title` - URL başlığını güncelleme
-- `GET /:code` - Kısa URL yönlendirme
+## Komutlar
 
-## 🤝 Katkıda Bulunma
+```bash
+npm run dev       # Geliştirme sunucusu
+npm run build     # TypeScript derlemesi
+npm start         # Derlenmiş uygulamayı çalıştırır
+npm run init-db   # PostgreSQL tablolarını oluşturur/günceller
+```
 
-1. Bu projeyi fork edin
-2. Yeni bir branch oluşturun (`git checkout -b feature/amazing-feature`)
-3. Değişikliklerinizi commit edin (`git commit -m 'Add amazing feature'`)
-4. Branch'inizi push edin (`git push origin feature/amazing-feature`)
-5. Pull Request açın
+## Vercel Dağıtımı
 
+Vercel, `src/app.ts` içindeki varsayılan Express export'unu algılar. `vercel.json` framework seçimini Express olarak sabitler. `public/` klasörü Vercel CDN üzerinden statik olarak sunulur.
 
+Vercel proje ayarlarında şu ortam değişkenlerini tanımlayın:
 
+```env
+NODE_ENV=production
+DATABASE_URL=postgresql://...
+JWT_SECRET=uzun-ve-rastgele-bir-deger
+BASE_URL=https://proje-adiniz.vercel.app
+```
+
+Veritabanı sağlayıcınız SSL istemiyorsa ayrıca `DB_SSL=false` ekleyin. İlk dağıtımdan önce tabloları üretim veritabanında oluşturun:
+
+```bash
+DATABASE_URL="postgresql://..." DB_SSL=true npm run init-db
+```
+
+`BASE_URL` özel alan adı kullanıldığında o alan adına güncellenmelidir.
+
+Dağıtımdan sonra backend kontrolü:
+
+```text
+https://proje-adiniz.vercel.app/api/health
+```
+
+Bu adres veritabanına bağlanmadan `success: true` döndürmelidir. Ana sayfa açılıyor ama kayıt veya URL kısaltma çalışmıyorsa sorun deployment değil, `DATABASE_URL` veya veritabanı tablolarıdır.
+
+## API
+
+- `POST /api/auth/register`
+- `POST /api/auth/login`
+- `GET /api/auth/profile`
+- `POST /api/urls/shorten`
+- `GET /api/urls/list`
+- `PUT /api/urls/:id`
+- `DELETE /api/urls/:id`
+- `GET /api/urls/:id/stats`
+- `GET /:shortCode`
+
+Link güncelleme, silme ve istatistik uçları geçerli bir `Bearer` token gerektirir.

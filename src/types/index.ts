@@ -1,3 +1,8 @@
+// veri şablonlarını tanımladığı TypeScript türleri dosyasıdır.
+// Bu dosya kodun daha güvenli ve hatasız olmasını sağlar.
+//TypeScript'e "bu veriler nasıl görünmeli" diye tarif eder.
+// Böylece yanlış veri tiplerini kullanmayı engeller.
+
 export interface User {
   id: number;
   email: string;
@@ -12,8 +17,8 @@ export interface Url {
   user_id?: number;
   original_url: string;
   short_code: string;
-  title?: string;
-  domain?: string;
+  title?: string; //opsiyonel
+  domain?: string; //opsiyonel
   created_at: Date;
   expires_at?: Date;
   clicks?: number;
