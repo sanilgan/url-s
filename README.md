@@ -58,6 +58,8 @@ JWT_SECRET=uzun-ve-rastgele-bir-deger
 BASE_URL=https://proje-adiniz.vercel.app
 ```
 
+`DATABASE_URL` kesinlikle `localhost`, `127.0.0.1` veya yerel DBeaver bağlantısı olmamalıdır. Neon, Supabase veya Vercel Marketplace üzerinden oluşturulmuş erişilebilir bir PostgreSQL bağlantısı kullanın. Entegrasyon `POSTGRES_URL` oluşturuyorsa uygulama bunu da otomatik kullanır.
+
 Veritabanı sağlayıcınız SSL istemiyorsa ayrıca `DB_SSL=false` ekleyin. İlk dağıtımdan önce tabloları üretim veritabanında oluşturun:
 
 ```bash
@@ -70,9 +72,10 @@ Dağıtımdan sonra backend kontrolü:
 
 ```text
 https://proje-adiniz.vercel.app/api/health
+https://proje-adiniz.vercel.app/api/health/database
 ```
 
-Bu adres veritabanına bağlanmadan `success: true` döndürmelidir. Ana sayfa açılıyor ama kayıt veya URL kısaltma çalışmıyorsa sorun deployment değil, `DATABASE_URL` veya veritabanı tablolarıdır.
+İlk adres uygulamanın, ikinci adres PostgreSQL bağlantısının durumunu gösterir. Veritabanı adresi `503` döndürürse Vercel Environment Variables içindeki bağlantı URL'sini düzeltin.
 
 ## API
 

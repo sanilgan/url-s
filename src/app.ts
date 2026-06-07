@@ -6,6 +6,7 @@ import path from 'path';
 import urlRoutes from './routes/urlRoutes';
 import authRoutes from './routes/authRoutes';
 import { UrlController } from './controllers/urlController';
+import pool, { databaseConfigurationError } from './config/database';
 // ana sunucu dosyasıdır. Express.js web sunucusunu kuran ve yapılandıran merkezi dosyadır.
 dotenv.config();
 
@@ -41,8 +42,22 @@ app.get('/api/health', (req, res) => {
   res.json({
     success: true,
     service: 'url-shortener',
+    database_configured: !databaseConfigurationError,
     timestamp: new Date().toISOString()
   });
+});
+
+app.get('/api/health/database', async (req, res) => {
+  try {
+    await pool.query('SELECT 1');
+    res.json({ success: true, database: 'connected' });
+  } catch (error) {
+    res.status(503).json({
+      success: false,
+      database: 'unavailable',
+      error: error instanceof Error ? error.message : 'Database connection failed'
+    });
+  }
 });
 
 // Ana Redirect Fonksiyonu
