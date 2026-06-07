@@ -17,7 +17,7 @@ TypeScript, Express ve PostgreSQL ile geliştirilmiş URL kısaltma uygulaması.
 - Node.js 22
 - Express.js ve TypeScript
 - PostgreSQL
-- Argon2 ve JWT
+- bcryptjs ve JWT
 - HTML, CSS ve Vanilla JavaScript
 
 ## Yerel Kurulum
