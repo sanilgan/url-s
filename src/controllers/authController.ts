@@ -1,6 +1,5 @@
 import { Request, Response } from 'express';
 import { authService } from '../services/authService';
-import pool from '../config/database';
 
 //kimlik doğrulama işlemlerinin kalbidir.
 // HTTP isteklerini alıp kimlik doğrulama business logic'ini çalıştıran controller (kontrolcü) dosyasıdır.
@@ -195,36 +194,16 @@ export class AuthController {
       const token = authHeader.substring(7);
       const decoded = await authService.verifyToken(token);
 
-      const client = await pool.connect();
-      try {
-        const result = await client.query(
-          'SELECT id, email, name, created_at, is_active FROM users WHERE id = $1 AND is_active = true',
-          [decoded.userId]
-        );
-
-        if (result.rows.length === 0) {
-          res.status(404).json({
-            success: false,
-            error: 'User not found'
-          });
-          return;
-        }
-
-        const user = result.rows[0];
-        res.json({
-          success: true,
-          data: {
-            id: user.id,
-            email: user.email,
-            name: user.name,
-            created_at: user.created_at,
-            is_active: user.is_active
-          }
+      const user = await authService.getProfile(decoded.userId);
+      if (!user) {
+        res.status(404).json({
+          success: false,
+          error: 'User not found'
         });
-
-      } finally {
-        client.release();
+        return;
       }
+
+      res.json({ success: true, data: user });
 
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Error fetching profile';

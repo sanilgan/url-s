@@ -667,7 +667,7 @@ class UrlShortener {
             const titleAttribute = this.escapeAttribute(url.title || 'Untitled');
             const originalUrl = this.escapeHtml(url.original_url || '');
             const shortUrlAttribute = this.escapeAttribute(shortUrl);
-            const urlId = Number.isInteger(Number(url.id)) ? Number(url.id) : 0;
+            const urlId = this.escapeAttribute(url.id || url.short_code || '');
             const clicks = Number.isFinite(Number(url.clicks)) ? Number(url.clicks) : 0;
 
             return `
@@ -803,7 +803,7 @@ class UrlShortener {
     // URL başlığını güncelle
     async updateUrlTitle(urlId, newTitle) {
         try {
-            const response = await fetch(`/api/urls/${urlId}`, {
+            const response = await fetch(`/api/urls/${encodeURIComponent(urlId)}`, {
                 method: 'PUT',
                 headers: this.getAuthHeaders(),
                 body: JSON.stringify({ title: newTitle })
@@ -834,7 +834,7 @@ class UrlShortener {
     // URL sil
     async deleteUrl(urlId) {
         try {
-            const response = await fetch(`/api/urls/${urlId}`, {
+            const response = await fetch(`/api/urls/${encodeURIComponent(urlId)}`, {
                 method: 'DELETE',
                 headers: this.getAuthHeaders()
             });

@@ -6,7 +6,7 @@ import path from 'path';
 import urlRoutes from './routes/urlRoutes';
 import authRoutes from './routes/authRoutes';
 import { UrlController } from './controllers/urlController';
-import pool, { databaseConfigurationError } from './config/database';
+import { firebaseConfigurationError, getFirestoreDb } from './config/firebase';
 // ana sunucu dosyasıdır. Express.js web sunucusunu kuran ve yapılandıran merkezi dosyadır.
 dotenv.config();
 
@@ -42,20 +42,22 @@ app.get('/api/health', (req, res) => {
   res.json({
     success: true,
     service: 'url-shortener',
-    database_configured: !databaseConfigurationError,
+    database: 'firestore',
+    database_configured: !firebaseConfigurationError,
     timestamp: new Date().toISOString()
   });
 });
 
-app.get('/api/health/database', async (req, res) => {
+app.get('/api/health/firebase', async (req, res) => {
   try {
-    await pool.query('SELECT 1');
-    res.json({ success: true, database: 'connected' });
+    await getFirestoreDb().collection('_health').limit(1).get();
+    res.json({ success: true, database: 'firestore', status: 'connected' });
   } catch (error) {
     res.status(503).json({
       success: false,
-      database: 'unavailable',
-      error: error instanceof Error ? error.message : 'Database connection failed'
+      database: 'firestore',
+      status: 'unavailable',
+      error: error instanceof Error ? error.message : 'Firebase connection failed'
     });
   }
 });

@@ -4,7 +4,7 @@ import { getJwtSecret } from '../config/auth';
 
 export interface AuthenticatedRequest extends Request {
   user?: {
-    userId: number;
+    userId: string;
     email: string;
   };
 }
@@ -20,7 +20,7 @@ export const authenticateOptional = (req: AuthenticatedRequest, res: Response, n
 
   try {
     const token = authHeader.substring(7);
-    const decoded = jwt.verify(token, getJwtSecret()) as { userId: number; email: string };
+    const decoded = jwt.verify(token, getJwtSecret()) as { userId: string; email: string };
     req.user = decoded;
   } catch (error) {
     req.user = undefined;
@@ -45,7 +45,7 @@ export const authenticateToken = (req: AuthenticatedRequest, res: Response, next
 
   try {
     const token = authHeader.substring(7);
-    const decoded = jwt.verify(token, getJwtSecret()) as { userId: number; email: string };
+    const decoded = jwt.verify(token, getJwtSecret()) as { userId: string; email: string };
     req.user = decoded;
     next();
   } catch (error) {

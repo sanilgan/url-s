@@ -1,281 +1,210 @@
+import { createHash } from 'crypto';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
-import pool from '../config/database';
-import { getJwtSecret } from '../config/auth';
-import { User } from '../types';
 import validator from 'validator';
+import { Timestamp } from 'firebase-admin/firestore';
+import { getJwtSecret } from '../config/auth';
+import { getFirestoreDb } from '../config/firebase';
+import { User } from '../types';
 
-//kimlik doğrulama ve güvenlik işlemlerini yöneten ana dosyadır.
-// Kullanıcı girişi, kayıt, şifre yönetimi gibi tüm güvenlik işlemlerini burada yapar.
-// bcryptjs native binary gerektirmediği için Vercel serverless ortamında güvenilir çalışır.
+interface UserDocument {
+  email: string;
+  name: string;
+  password_hash: string;
+  created_at: Timestamp;
+  is_active: boolean;
+}
+
+interface DecodedToken {
+  userId: string;
+  email: string;
+  type?: string;
+}
+
+type PublicUser = Omit<User, 'password_hash'>;
+
+function userIdForEmail(email: string): string {
+  return createHash('sha256').update(email).digest('hex');
+}
+
+function toPublicUser(id: string, data: UserDocument): PublicUser {
+  return {
+    id,
+    email: data.email,
+    name: data.name,
+    created_at: data.created_at.toDate(),
+    is_active: data.is_active
+  };
+}
 
 export class AuthService {
-
   private async hashPassword(password: string): Promise<string> {
-    try {
-      return await bcrypt.hash(password, 12);
-    } catch (error) {
-      throw new Error('Password hashing error');
-    }
+    return bcrypt.hash(password, 12);
   }
 
   private async verifyPassword(password: string, hash: string): Promise<boolean> {
     try {
       return await bcrypt.compare(password, hash);
-    } catch (error) {
+    } catch {
       return false;
     }
   }
-//Şifre şartları:
-// En az 8 karakter
-// En az 1 küçük harf (a-z)
-// En az 1 büyük harf (A-Z)
-// En az 1 rakam (0-9)
+
   private validatePassword(password: string): void {
     if (!password || password.length < 8) {
       throw new Error('Password must be at least 8 characters long');
     }
-
     if (!/(?=.*[a-z])/.test(password)) {
       throw new Error('Password must contain at least one lowercase letter');
     }
-
     if (!/(?=.*[A-Z])/.test(password)) {
       throw new Error('Password must contain at least one uppercase letter');
     }
-
     if (!/(?=.*\d)/.test(password)) {
       throw new Error('Password must contain at least one number');
     }
   }
-// Email doğrulama:
+
   private validateEmail(email: string): void {
     if (!email || !validator.isEmail(email)) {
       throw new Error('Please enter a valid email address');
     }
-
     if (email.length > 320) {
       throw new Error('Email address is too long');
     }
   }
 
-//7 gün geçerli giriş anahtarları
-// HS256 algoritması ile imzalama
-// Her token'da kullanıcı ID'si ve e-posta bilgisi
-  private createToken(userId: number, email: string): string {
+  private normalizeEmail(email: string): string {
+    return validator.normalizeEmail(email) || email.toLowerCase().trim();
+  }
+
+  private createToken(userId: string, email: string): string {
     return jwt.sign(
-      {
-        userId,
-        email,
-        iat: Math.floor(Date.now() / 1000)
-      },
+      { userId, email },
       getJwtSecret(),
-      {
-        expiresIn: '7d',
-        algorithm: 'HS256'
-      }
+      { expiresIn: '7d', algorithm: 'HS256' }
     );
   }
-// Kullanıcı kayıt işlemi:
-  async register(email: string, password: string, name?: string): Promise<{ user: Omit<User, 'password_hash'>, token: string }> {
-    const client = await pool.connect();
 
-    try {
-      this.validateEmail(email);
-      this.validatePassword(password);
+  async register(email: string, password: string, name?: string): Promise<{ user: PublicUser; token: string }> {
+    this.validateEmail(email);
+    this.validatePassword(password);
 
-      const normalizedEmail = validator.normalizeEmail(email) || email.toLowerCase().trim();
+    const normalizedEmail = this.normalizeEmail(email);
+    const userId = userIdForEmail(normalizedEmail);
+    const userRef = getFirestoreDb().collection('users').doc(userId);
+    const hashedPassword = await this.hashPassword(password);
+    const userData: UserDocument = {
+      email: normalizedEmail,
+      name: name?.trim() || 'User',
+      password_hash: hashedPassword,
+      created_at: Timestamp.now(),
+      is_active: true
+    };
 
-      // Mevcut kullanıcı kontrolü
-      const existingUser = await client.query(
-        'SELECT id FROM users WHERE email = $1',
-        [normalizedEmail]
-      );
-
-      if (existingUser.rows.length > 0) {
+    await getFirestoreDb().runTransaction(async transaction => {
+      const existingUser = await transaction.get(userRef);
+      if (existingUser.exists) {
         throw new Error('This email address is already registered');
       }
+      transaction.create(userRef, userData);
+    });
 
-      const hashedPassword = await this.hashPassword(password);
-
-      const result = await client.query(`
-        INSERT INTO users (email, password_hash, name, created_at, is_active)
-        VALUES ($1, $2, $3, NOW(), true)
-        RETURNING id, email, name, created_at, is_active
-      `, [normalizedEmail, hashedPassword, name || 'User']);
-
-      const user = result.rows[0];
-      const token = this.createToken(user.id, user.email);
-
-      return {
-        user: {
-          id: user.id,
-          email: user.email,
-          name: user.name,
-          created_at: user.created_at,
-          is_active: user.is_active
-        },
-        token
-      };
-
-    } catch (error) {
-      if (error instanceof Error) {
-        throw error;
-      }
-      throw new Error('Error occurred during user registration');
-    } finally {
-      client.release();
-    }
+    return {
+      user: toPublicUser(userId, userData),
+      token: this.createToken(userId, normalizedEmail)
+    };
   }
-// Kullanıcı girişi işlemi:
-  async login(email: string, password: string): Promise<{ user: Omit<User, 'password_hash'>, token: string }> {
-    const client = await pool.connect();
 
-    try {
-      this.validateEmail(email);
-
-      if (!password) {
-        throw new Error('Password is required');
-      }
-
-      const normalizedEmail = validator.normalizeEmail(email) || email.toLowerCase().trim();
-      console.log('Login attempt for email:', normalizedEmail);
-
-      const result = await client.query(
-        `SELECT id, email, name, password_hash, created_at, is_active
-         FROM users
-         WHERE email = $1 AND is_active = true`,
-        [normalizedEmail]
-      );
-
-      console.log('User found in database:', result.rows.length > 0);
-
-      if (result.rows.length === 0) {
-        console.log('No user found with email:', normalizedEmail);
-        throw new Error('Invalid email or password');
-      }
-
-      const user = result.rows[0];
-      console.log('User data:', {
-        id: user.id,
-        email: user.email,
-        hasPasswordHash: !!user.password_hash,
-        passwordHashLength: user.password_hash ? user.password_hash.length : 0
-      });
-
-      // Şifre doğrulama öncesi debug
-      console.log('Password verification - Input password length:', password.length);
-      console.log('Stored hash starts with:', user.password_hash ? user.password_hash.substring(0, 10) : 'null');
-
-      const isValidPassword = await this.verifyPassword(password, user.password_hash);
-      console.log('Password verification result:', isValidPassword);
-
-      if (!isValidPassword) {
-        console.log('Password verification failed for user:', user.email);
-        throw new Error('Invalid email or password');
-      }
-
-      const token = this.createToken(user.id, user.email);
-
-      console.log('Login successful for user:', user.email);
-
-      return {
-        user: {
-          id: user.id,
-          email: user.email,
-          name: user.name,
-          created_at: user.created_at,
-          is_active: user.is_active
-        },
-        token
-      };
-
-    } catch (error) {
-      console.error('Login error details:', error);
-      if (error instanceof Error) {
-        throw error;
-      }
-      throw new Error('Error occurred during login');
-    } finally {
-      client.release();
+  async login(email: string, password: string): Promise<{ user: PublicUser; token: string }> {
+    this.validateEmail(email);
+    if (!password) {
+      throw new Error('Password is required');
     }
+
+    const normalizedEmail = this.normalizeEmail(email);
+    const userId = userIdForEmail(normalizedEmail);
+    const snapshot = await getFirestoreDb().collection('users').doc(userId).get();
+
+    if (!snapshot.exists) {
+      throw new Error('Invalid email or password');
+    }
+
+    const user = snapshot.data() as UserDocument;
+    if (!user.is_active || !await this.verifyPassword(password, user.password_hash)) {
+      throw new Error('Invalid email or password');
+    }
+
+    return {
+      user: toPublicUser(snapshot.id, user),
+      token: this.createToken(snapshot.id, user.email)
+    };
   }
-//API isteklerinde token geçerliliğini kontrol eder
-// Süresi dolmuş token'ları reddeder
-  async verifyToken(token: string): Promise<any> {
+
+  async verifyToken(token: string): Promise<DecodedToken> {
     try {
-      return jwt.verify(token, getJwtSecret());
-    } catch (error) {
+      return jwt.verify(token, getJwtSecret()) as DecodedToken;
+    } catch {
       throw new Error('Invalid or expired token');
     }
   }
 
-//1 saat geçerli özel token
-// E-posta ile kullanıcı doğrulamas
-  async generatePasswordResetToken(email: string): Promise<string> {
-    const client = await pool.connect();
-
-    try {
-      this.validateEmail(email);
-      const normalizedEmail = validator.normalizeEmail(email) || email.toLowerCase().trim();
-
-      const result = await client.query(
-        'SELECT id FROM users WHERE email = $1 AND is_active = true',
-        [normalizedEmail]
-      );
-
-      if (result.rows.length === 0) {
-        throw new Error('User not found');
-      }
-
-      return jwt.sign(
-        { userId: result.rows[0].id, email: normalizedEmail, type: 'password_reset' },
-        getJwtSecret(),
-        { expiresIn: '1h' }
-      );
-
-    } catch (error) {
-      if (error instanceof Error) {
-        throw error;
-      }
-      throw new Error('Error generating password reset token');
-    } finally {
-      client.release();
+  async getProfile(userId: string): Promise<PublicUser | null> {
+    const snapshot = await getFirestoreDb().collection('users').doc(userId).get();
+    if (!snapshot.exists) {
+      return null;
     }
+
+    const user = snapshot.data() as UserDocument;
+    return user.is_active ? toPublicUser(snapshot.id, user) : null;
   }
 
-// Şifre sıfırlama işlemi:
-  async resetPassword(token: string, newPassword: string): Promise<void> {
-    const client = await pool.connect();
+  async generatePasswordResetToken(email: string): Promise<string> {
+    this.validateEmail(email);
+    const normalizedEmail = this.normalizeEmail(email);
+    const userId = userIdForEmail(normalizedEmail);
+    const snapshot = await getFirestoreDb().collection('users').doc(userId).get();
 
-    try {
-      const decoded = jwt.verify(token, getJwtSecret()) as any;
-
-      if (decoded.type !== 'password_reset') {
-        throw new Error('Invalid token type');
-      }
-
-      this.validatePassword(newPassword);
-
-      const hashedPassword = await this.hashPassword(newPassword);
-
-      const result = await client.query(
-        'UPDATE users SET password_hash = $1 WHERE id = $2 AND is_active = true',
-        [hashedPassword, decoded.userId]
-      );
-
-      if (result.rowCount === 0) {
-        throw new Error('User not found or inactive');
-      }
-
-    } catch (error) {
-      if (error instanceof Error) {
-        throw error;
-      }
-      throw new Error('Password reset error');
-    } finally {
-      client.release();
+    if (!snapshot.exists || !(snapshot.data() as UserDocument).is_active) {
+      throw new Error('User not found');
     }
+
+    return jwt.sign(
+      { userId, email: normalizedEmail, type: 'password_reset' },
+      getJwtSecret(),
+      { expiresIn: '1h' }
+    );
+  }
+
+  async resetPassword(token: string, newPassword: string): Promise<void> {
+    const decoded = jwt.verify(token, getJwtSecret()) as DecodedToken;
+    if (decoded.type !== 'password_reset') {
+      throw new Error('Invalid token type');
+    }
+
+    this.validatePassword(newPassword);
+    const userRef = getFirestoreDb().collection('users').doc(decoded.userId);
+    const snapshot = await userRef.get();
+
+    if (!snapshot.exists || !(snapshot.data() as UserDocument).is_active) {
+      throw new Error('User not found or inactive');
+    }
+
+    await userRef.update({ password_hash: await this.hashPassword(newPassword) });
+  }
+
+  async updatePasswordByEmail(email: string, newPassword: string): Promise<void> {
+    this.validateEmail(email);
+    this.validatePassword(newPassword);
+    const normalizedEmail = this.normalizeEmail(email);
+    const userRef = getFirestoreDb().collection('users').doc(userIdForEmail(normalizedEmail));
+    const snapshot = await userRef.get();
+
+    if (!snapshot.exists) {
+      throw new Error('User not found');
+    }
+
+    await userRef.update({ password_hash: await this.hashPassword(newPassword) });
   }
 }
 

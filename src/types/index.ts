@@ -4,7 +4,7 @@
 // Böylece yanlış veri tiplerini kullanmayı engeller.
 
 export interface User {
-  id: number;
+  id: string;
   email: string;
   name: string;
   password_hash: string;
@@ -13,8 +13,8 @@ export interface User {
 }
 
 export interface Url {
-  id: number;
-  user_id?: number;
+  id: string;
+  user_id?: string;
   original_url: string;
   short_code: string;
   title?: string; //opsiyonel
@@ -22,7 +22,6 @@ export interface Url {
   created_at: Date;
   expires_at?: Date;
   clicks?: number;
-  url_count?: number;
   last_clicked_at?: Date;
   is_active: boolean;
 }

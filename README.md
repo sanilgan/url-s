@@ -1,81 +1,81 @@
 # LinkShort
 
-TypeScript, Express ve PostgreSQL ile geliştirilmiş URL kısaltma uygulaması.
+Express, TypeScript ve Firebase Cloud Firestore ile geliştirilmiş URL kısaltma uygulaması.
 
 ## Özellikler
 
 - Kullanıcı kaydı ve JWT ile giriş
-- Oturum açmadan veya kullanıcı hesabıyla kısa link oluşturma
-- Özel kısa kod desteği
-- Link başlığı düzenleme ve link silme
-- Tıklanma sayısı ve son tıklanma zamanı
+- Oturum açmadan kısa link oluşturma
+- Özel kısa kodlar
+- Link düzenleme ve silme
+- Tıklanma istatistikleri
 - QR kod üretimi
-- Vercel üzerinde sıfır-konfigürasyon Express dağıtımı
+- Vercel üzerinde Express dağıtımı
 
-## Teknolojiler
+## Firebase Yapısı
 
-- Node.js 22
-- Express.js ve TypeScript
-- PostgreSQL
-- bcryptjs ve JWT
-- HTML, CSS ve Vanilla JavaScript
+Uygulama Firestore içinde iki koleksiyon kullanır:
 
-## Yerel Kurulum
+- `users`: kullanıcı profili ve bcrypt parola özeti
+- `urls`: kısa kod, hedef URL, sahiplik ve tıklanma verileri
 
-```bash
-npm install
-cp .env.example .env
-```
+Kısa kod aynı zamanda `urls` doküman kimliğidir. Firestore koleksiyonları ilk kayıt sırasında otomatik oluşur; SQL tablosu veya migration gerekmez.
 
-`.env` dosyasındaki PostgreSQL ve `JWT_SECRET` değerlerini doldurun. Ardından:
+Tarayıcıya ait Firebase `apiKey` değeri backend erişimi sağlamaz. Vercel’de çalışan Express sunucusu Firebase Admin SDK kullandığı için servis hesabı gereklidir.
 
-```bash
-npm run init-db
-npm run dev
-```
+## Firebase Hazırlığı
 
-Varsayılan adres: `http://localhost:3005`
+1. Firebase Console içinde `url-s-c6e4d` projesini açın.
+2. **Build → Firestore Database → Create database** ile Firestore oluşturun.
+3. **Project settings → Service accounts → Generate new private key** seçin.
+4. İndirilen JSON dosyasının tamamını Vercel’de `FIREBASE_SERVICE_ACCOUNT_KEY` olarak ekleyin.
+5. `firestore.rules` dosyasındaki kuralları Firebase’e deploy edin. Admin SDK bu kuralları IAM ile güvenli biçimde aşar; tarayıcıdan doğrudan erişim kapalı kalır.
 
-## Komutlar
-
-```bash
-npm run dev       # Geliştirme sunucusu
-npm run build     # TypeScript derlemesi
-npm start         # Derlenmiş uygulamayı çalıştırır
-npm run init-db   # PostgreSQL tablolarını oluşturur/günceller
-```
-
-## Vercel Dağıtımı
-
-Vercel, `src/app.ts` içindeki varsayılan Express export'unu algılar. `vercel.json` framework seçimini Express olarak sabitler. `public/` klasörü Vercel CDN üzerinden statik olarak sunulur.
-
-Vercel proje ayarlarında şu ortam değişkenlerini tanımlayın:
+## Vercel Değişkenleri
 
 ```env
 NODE_ENV=production
-DATABASE_URL=postgresql://...
+FIREBASE_PROJECT_ID=url-s-c6e4d
+FIREBASE_SERVICE_ACCOUNT_KEY={"type":"service_account",...}
 JWT_SECRET=uzun-ve-rastgele-bir-deger
 BASE_URL=https://proje-adiniz.vercel.app
 ```
 
-`DATABASE_URL` kesinlikle `localhost`, `127.0.0.1` veya yerel DBeaver bağlantısı olmamalıdır. Neon, Supabase veya Vercel Marketplace üzerinden oluşturulmuş erişilebilir bir PostgreSQL bağlantısı kullanın. Entegrasyon `POSTGRES_URL` oluşturuyorsa uygulama bunu da otomatik kullanır.
+`DATABASE_URL`, `POSTGRES_URL`, `DB_HOST` ve diğer PostgreSQL değişkenleri artık kullanılmaz; Vercel’den kaldırılabilir.
 
-Veritabanı sağlayıcınız SSL istemiyorsa ayrıca `DB_SSL=false` ekleyin. İlk dağıtımdan önce tabloları üretim veritabanında oluşturun:
+## Yerel Kullanım
 
 ```bash
-DATABASE_URL="postgresql://..." DB_SSL=true npm run init-db
+npm install
+cp .env.example .env
+npm run check-firebase
+npm run dev
 ```
 
-`BASE_URL` özel alan adı kullanıldığında o alan adına güncellenmelidir.
+Servis hesabı dosyasını ortam değişkeni yerine yerelde kullanmak için:
 
-Dağıtımdan sonra backend kontrolü:
+```bash
+export GOOGLE_APPLICATION_CREDENTIALS="/tam/yol/service-account.json"
+npm run dev
+```
+
+## Kontrol Adresleri
 
 ```text
-https://proje-adiniz.vercel.app/api/health
-https://proje-adiniz.vercel.app/api/health/database
+GET /api/health
+GET /api/health/firebase
 ```
 
-İlk adres uygulamanın, ikinci adres PostgreSQL bağlantısının durumunu gösterir. Veritabanı adresi `503` döndürürse Vercel Environment Variables içindeki bağlantı URL'sini düzeltin.
+İkinci adres `status: "connected"` döndürdüğünde Firestore bağlantısı hazırdır.
+
+## Komutlar
+
+```bash
+npm run dev
+npm run build
+npm start
+npm run check-firebase
+```
 
 ## API
 
@@ -88,5 +88,3 @@ https://proje-adiniz.vercel.app/api/health/database
 - `DELETE /api/urls/:id`
 - `GET /api/urls/:id/stats`
 - `GET /:shortCode`
-
-Link güncelleme, silme ve istatistik uçları geçerli bir `Bearer` token gerektirir.

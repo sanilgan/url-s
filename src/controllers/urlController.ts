@@ -143,14 +143,13 @@ export class UrlController {
       const { id } = req.params;
       const { title } = req.body;
       const userId = req.user?.userId;
-      const urlId = Number(id);
 
       if (!userId) {
         res.status(401).json({ success: false, error: 'Authentication required' });
         return;
       }
 
-      if (!Number.isInteger(urlId) || urlId <= 0) {
+      if (!/^[a-zA-Z0-9_-]{3,20}$/.test(id)) {
         res.status(400).json({ success: false, error: 'Invalid URL id' });
         return;
       }
@@ -160,7 +159,7 @@ export class UrlController {
         return;
       }
 
-      const updatedUrl = await urlService.updateUrl(urlId, { title: title.trim().slice(0, 255) }, userId);
+      const updatedUrl = await urlService.updateUrl(id, { title: title.trim().slice(0, 255) }, userId);
       res.json({ success: true, data: updatedUrl });
     } catch (error) {
       res.status(400).json({
@@ -176,7 +175,6 @@ export class UrlController {
     try {
       const { id } = req.params; // URL'den ID'yi çıkarır (/api/urls/123 → id=123)
       const userId = req.user?.userId;
-      const urlId = Number(id);
       // JWT token'dan kullanıcı ID'sini alır
 
       if (!userId) {
@@ -184,14 +182,13 @@ export class UrlController {
         return;
       }
 
-      if (!Number.isInteger(urlId) || urlId <= 0) {
+      if (!/^[a-zA-Z0-9_-]{3,20}$/.test(id)) {
         res.status(400).json({ success: false, error: 'Invalid URL id' });
         return;
       }
 
-      await urlService.deleteUrl(urlId, userId);
+      await urlService.deleteUrl(id, userId);
       // UrlService'deki deleteUrl metodunu çağırır
-      // ID'yi integer'a çevirir (string → number)
       res.json({ success: true, message: 'URL deleted' });
     } catch (error) {
       res.status(400).json({
@@ -208,19 +205,18 @@ export class UrlController {
     try {
       const { id } = req.params;
       const userId = req.user?.userId;
-      const urlId = Number(id);
 
       if (!userId) {
         res.status(401).json({ success: false, error: 'Authentication required' });
         return;
       }
 
-      if (!Number.isInteger(urlId) || urlId <= 0) {
+      if (!/^[a-zA-Z0-9_-]{3,20}$/.test(id)) {
         res.status(400).json({ success: false, error: 'Invalid URL id' });
         return;
       }
 
-      const stats = await urlService.getUrlStats(urlId, userId);
+      const stats = await urlService.getUrlStats(id, userId);
       res.json({ success: true, data: stats });
     } catch (error) {
       res.status(400).json({
